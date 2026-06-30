@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<title>リノベ検査野帳</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root{
+    --bg:#E7E9EC; --surface:#FFFFFF; --surface-2:#F5F6F8;
+    --ink:#1E242B; --sub:#69727B; --line:#D8DCE0; --line-2:#E5E8EB;
+    --pass:#137A4E; --pass-bg:#E4F2EA;
+    --ng:#C8102E; --ng-bg:#FBE6E9;
+    --na:#79818A; --na-bg:#ECEEF0;
+    --accent:#0E4F7D; --accent-2:#1769A8;
+    --safety:#F2B600; --ink-bar:#222831;
+    --shadow:0 1px 2px rgba(20,28,36,.06), 0 4px 14px rgba(20,28,36,.06);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:-apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Noto Sans JP", "Yu Gothic", Meiryo, sans-serif;
+    -webkit-font-smoothing:antialiased; line-height:1.5;
+  }
+  .mono{font-family:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace; font-feature-settings:"tnum" 1; letter-spacing:-.01em;}
+  button{font-family:inherit; cursor:pointer; border:none; background:none; color:inherit;}
+  input,textarea,select{font-family:inherit; font-size:16px;}
+  .app{max-width:860px; margin:0 auto; min-height:100vh; padding-bottom:calc(84px + env(safe-area-inset-bottom));}
+
+  .topbar{position:sticky; top:0; z-index:30; background:var(--ink-bar); color:#fff; padding:calc(env(safe-area-inset-top) + 12px) 18px 12px;}
+  .topbar .wrap{display:flex; align-items:center; gap:12px;}
+  .brand{display:flex; align-items:baseline; gap:9px;}
+  .brand b{font-size:19px; font-weight:800; letter-spacing:.04em;}
+  .brand span{font-size:11px; color:#AEB6BE; letter-spacing:.18em; font-weight:600;}
+  .hazard{height:6px; background:repeating-linear-gradient(-45deg,var(--safety) 0 12px,#1b2026 12px 24px);}
+  .back-btn{display:flex; align-items:center; gap:5px; font-weight:700; font-size:15px; color:#fff;}
+  .topbar .ttl{font-size:16px; font-weight:800; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+
+  .pad{padding:16px;}
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow);}
+  .muted{color:var(--sub);}
+  .row{display:flex; gap:10px;}
+
+  .summary{margin:16px 16px 6px; background:var(--ink-bar); color:#fff; border-radius:16px; overflow:hidden; box-shadow:var(--shadow);}
+  .summary .top{padding:15px 14px; display:flex;}
+  .summary .blk{flex:1; text-align:center; padding:0 4px;}
+  .summary .lab{font-size:10.5px; letter-spacing:.08em; color:#9aa4ad; font-weight:700;}
+  .summary .num{font-size:27px; font-weight:800; line-height:1.1; margin-top:2px;}
+  .summary .num.warn{color:var(--safety);}
+  .summary .num.ng{color:#FF7A86;}
+  .summary .div{width:1px; background:#39414a; margin:2px 0;}
+
+  .sec-head{display:flex; align-items:center; justify-content:space-between; margin:18px 16px 10px;}
+  .sec-head h2{font-size:15px; font-weight:800; margin:0; letter-spacing:.02em;}
+
+  .btn{display:inline-flex; align-items:center; justify-content:center; gap:7px; font-weight:700; border-radius:11px; padding:11px 15px; font-size:14px; transition:.12s; min-height:44px;}
+  .btn:active{transform:scale(.98);}
+  .btn-primary{background:var(--accent); color:#fff;}
+  .btn-ghost{background:var(--surface); color:var(--accent); border:1px solid var(--line);}
+  .btn-sm{padding:8px 12px; min-height:38px; font-size:13px; border-radius:9px;}
+  .btn-block{width:100%;}
+
+  .toolbar{margin:0 16px 4px; display:flex; gap:8px; align-items:center;}
+  .search{flex:1; display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--line); border-radius:11px; padding:0 12px;}
+  .search input{border:none; outline:none; padding:11px 0; width:100%; background:none;}
+  .chip{padding:9px 13px; border-radius:11px; border:1px solid var(--line); background:var(--surface); font-size:13px; font-weight:700; color:var(--sub); white-space:nowrap;}
+  .chip.on{background:var(--ng-bg); border-color:#f3c6cd; color:var(--ng);}
+
+  .insp-list{padding:6px 16px 24px; display:flex; flex-direction:column; gap:12px;}
+  .prop{padding:15px 16px; cursor:pointer;}
+  .prop .site{font-size:17px; font-weight:800; line-height:1.25;}
+  .prop .meta{font-size:12.5px; color:var(--sub); margin-top:3px; display:flex; gap:12px; flex-wrap:wrap;}
+  .type-chips{display:flex; gap:6px; margin-top:11px; flex-wrap:wrap;}
+  .tchip{font-size:11px; font-weight:800; padding:5px 9px; border-radius:8px; border:1px solid var(--line); color:var(--sub); background:var(--surface-2); display:flex; gap:6px; align-items:center;}
+  .tchip .dot{width:7px;height:7px;border-radius:99px;background:var(--line);}
+  .tchip.has.chukan{color:var(--accent);} .tchip.has.naiso{color:#6B3FA0;} .tchip.has.setsubi{color:var(--pass);}
+  .tchip.has .dot{background:currentColor;}
+
+  .badge{font-size:11px; font-weight:800; padding:4px 9px; border-radius:999px; white-space:nowrap; letter-spacing:.04em;}
+  .b-chukan{background:#E8EFF6; color:var(--accent);}
+  .b-naiso{background:#F1ECF7; color:#6B3FA0;}
+  .b-setsubi{background:#E9F4EF; color:var(--pass);}
+
+  .stats{display:flex; gap:8px; margin-top:13px;}
+  .stat{flex:1; background:var(--surface-2); border-radius:10px; padding:9px 4px; text-align:center;}
+  .stat .v{font-size:20px; font-weight:800; line-height:1;}
+  .stat .v.ng{color:var(--ng);} .stat .v.zan{color:#B8860B;} .stat .v.done{color:var(--pass);}
+  .stat .k{font-size:10.5px; color:var(--sub); margin-top:4px; font-weight:700;}
+  .pbar{height:7px; border-radius:99px; background:var(--line-2); margin-top:12px; overflow:hidden;}
+  .pbar i{display:block; height:100%; background:var(--pass); border-radius:99px;}
+  .pmeta{display:flex; justify-content:space-between; font-size:11px; color:var(--sub); margin-top:6px; font-weight:600;}
+
+  .insp{padding:14px 15px; cursor:pointer;}
+  .insp .hd{display:flex; align-items:flex-start; justify-content:space-between; gap:10px;}
+  .insp .meta{font-size:12.5px; color:var(--sub); margin-top:6px; display:flex; gap:12px; flex-wrap:wrap;}
+
+  .dhead{margin:16px; padding:16px;}
+  .dhead .site{font-size:20px; font-weight:800;}
+  .dfields{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px;}
+  .field label{display:block; font-size:11px; font-weight:800; color:var(--sub); letter-spacing:.04em; margin-bottom:5px;}
+  .field input{width:100%; border:1px solid var(--line); border-radius:10px; padding:10px 12px; background:var(--surface-2);}
+  .field.full{grid-column:1 / -1;}
+
+  .exrow{display:flex; gap:8px; margin:0 16px 4px;}
+
+  .cat{margin:14px 16px;}
+  .cat-head{display:flex; align-items:center; gap:8px; padding:0 2px 8px;}
+  .cat-head .nm{font-size:14px; font-weight:800; flex:1;}
+  .cat-head .ct{font-size:11px; color:var(--sub); font-weight:700;}
+  .cat-body{background:var(--surface); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); overflow:hidden;}
+  .item{padding:13px 14px; border-top:1px solid var(--line-2);}
+  .item:first-child{border-top:none;}
+  .item .lab{font-size:14.5px; font-weight:600; display:flex; gap:8px; align-items:flex-start;}
+  .item .lab .no{color:var(--sub); font-weight:800; font-size:12px; min-width:20px; padding-top:2px;}
+  .item .lab .tx{flex:1;}
+  .judges{display:flex; gap:7px; margin-top:11px;}
+  .jbtn{flex:1; padding:10px 4px; border-radius:10px; border:1.5px solid var(--line); background:var(--surface); font-weight:800; font-size:13.5px; color:var(--sub); text-align:center;}
+  .jbtn.ok.on{background:var(--pass-bg); border-color:var(--pass); color:var(--pass);}
+  .jbtn.ng.on{background:var(--ng-bg); border-color:var(--ng); color:var(--ng);}
+  .jbtn.na.on{background:var(--na-bg); border-color:var(--na); color:var(--ink);}
+
+  .ng-panel{margin-top:11px; background:var(--ng-bg); border:1px solid #f3ccd2; border-radius:11px; padding:11px;}
+  .ng-panel textarea{width:100%; border:1px solid #eab9c0; border-radius:9px; padding:9px 10px; resize:vertical; min-height:54px; background:#fff;}
+  .fixrow{display:flex; gap:8px; margin-top:9px; align-items:center;}
+  .fixtog{display:flex; border:1px solid #eab9c0; border-radius:9px; overflow:hidden; background:#fff;}
+  .fixtog button{padding:9px 13px; font-size:12.5px; font-weight:800; color:var(--sub);}
+  .fixtog button.on.no{background:var(--ng); color:#fff;}
+  .fixtog button.on.yes{background:var(--pass); color:#fff;}
+  .due{flex:1; border:1px solid #eab9c0; border-radius:9px; padding:9px 10px; background:#fff; min-width:0;}
+
+  .item-tools{display:flex; gap:14px; margin-top:10px;}
+  .item-tools button{font-size:12px; font-weight:700; color:var(--sub); display:flex; align-items:center; gap:4px;}
+  .item-tools button.del{color:var(--ng);}
+  .add-item{width:100%; padding:12px; text-align:center; font-weight:800; color:var(--accent); font-size:13.5px; border-top:1px dashed var(--line); background:var(--surface-2);}
+
+  .nav{position:fixed; left:0; right:0; bottom:0; z-index:40; background:rgba(255,255,255,.94); backdrop-filter:blur(10px); border-top:1px solid var(--line); display:flex; padding-bottom:env(safe-area-inset-bottom);}
+  .nav .navwrap{max-width:860px; margin:0 auto; width:100%; display:flex;}
+  .nav button{flex:1; padding:10px 0 12px; display:flex; flex-direction:column; align-items:center; gap:3px; color:var(--sub); font-size:11px; font-weight:700;}
+  .nav button.on{color:var(--accent);}
+  .nav svg{width:23px; height:23px;}
+
+  .fab{position:fixed; right:18px; bottom:calc(86px + env(safe-area-inset-bottom)); z-index:35; background:var(--accent); color:#fff; border-radius:16px; padding:14px 18px; font-weight:800; font-size:14px; box-shadow:0 8px 24px rgba(14,79,125,.35); display:flex; align-items:center; gap:7px;}
+
+  .ov{position:fixed; inset:0; z-index:60; background:rgba(20,26,32,.45); display:flex; align-items:flex-end; justify-content:center;}
+  .sheet{background:var(--surface); width:100%; max-width:860px; border-radius:18px 18px 0 0; padding:20px 18px calc(20px + env(safe-area-inset-bottom)); max-height:88vh; overflow:auto;}
+  .sheet h3{margin:0 0 4px; font-size:18px; font-weight:800;}
+  .sheet .sub{font-size:13px; color:var(--sub); margin-bottom:16px;}
+  .seg{display:flex; gap:8px; margin-bottom:14px;}
+  .seg button{flex:1; padding:13px 6px; border-radius:12px; border:1.5px solid var(--line); font-weight:800; font-size:13.5px; color:var(--sub); text-align:center; background:var(--surface-2);}
+  .seg button.on{border-color:var(--accent); background:#EAF1F8; color:var(--accent);}
+  .seg button small{display:block; font-weight:600; font-size:10.5px; margin-top:3px; color:var(--sub);}
+  .flabel{font-size:12px; font-weight:800; color:var(--sub); margin:12px 0 6px; letter-spacing:.03em;}
+  .finput{width:100%; border:1px solid var(--line); border-radius:11px; padding:12px; background:var(--surface-2);}
+  .sheet-actions{display:flex; gap:10px; margin-top:20px;}
+
+  .ovc{position:fixed; inset:0; z-index:70; background:rgba(20,26,32,.5); display:flex; align-items:center; justify-content:center; padding:24px;}
+  .dialog{background:#fff; width:100%; max-width:420px; border-radius:16px; padding:20px; box-shadow:var(--shadow);}
+  .dialog h3{margin:0 0 12px; font-size:17px; font-weight:800;}
+  .dialog p{margin:0 0 14px; font-size:14px; color:var(--sub);}
+  .dialog .acts{display:flex; gap:10px; margin-top:16px;}
+
+  .empty{text-align:center; padding:50px 24px; color:var(--sub);}
+  .empty .ic{font-size:34px; margin-bottom:10px;}
+
+  /* 操作バー（取込・共有） */
+  .actbar{display:flex; gap:8px; margin:10px 16px 0; flex-wrap:wrap;}
+  .actbar .btn{flex:1; min-width:120px;}
+
+  /* 図面（是正マップ） */
+  .dwg-list{display:flex; flex-direction:column; gap:10px;}
+  .dwg-card{display:flex; align-items:center; gap:12px; padding:13px 15px; cursor:pointer;}
+  .dwg-thumb{width:54px; height:54px; border-radius:8px; background:var(--surface-2); border:1px solid var(--line); object-fit:cover; flex:none;}
+  .dwg-card .nm{font-weight:800; font-size:15px;}
+  .dwg-card .sub{font-size:12px; color:var(--sub); margin-top:2px;}
+  .dwg-toolbar{display:flex; gap:8px; align-items:center; margin:0 16px 10px; flex-wrap:wrap;}
+  .addmode{font-size:13px; font-weight:800; color:var(--sub); display:flex; align-items:center; gap:8px;}
+  .toggle{width:46px; height:27px; border-radius:99px; background:var(--line); position:relative; transition:.15s; flex:none;}
+  .toggle.on{background:var(--accent);}
+  .toggle i{position:absolute; top:3px; left:3px; width:21px; height:21px; border-radius:50%; background:#fff; transition:.15s;}
+  .toggle.on i{left:22px;}
+  .split{display:flex; flex-direction:column; gap:14px; margin:0 16px 16px;}
+  .canvas-wrap{position:relative; border:1px solid var(--line); border-radius:12px; overflow:hidden; background:#fff; box-shadow:var(--shadow);}
+  .canvas-wrap img{width:100%; display:block;}
+  .canvas-wrap.adding{cursor:crosshair;}
+  .pin{position:absolute; transform:translate(-50%,-50%); width:26px; height:26px; border-radius:50%; background:var(--ng); color:#fff; font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center; border:2px solid #fff; box-shadow:0 0 0 1.5px var(--ng),0 2px 5px rgba(0,0,0,.3); cursor:pointer; padding:0;}
+  .pin.done{background:var(--pass); box-shadow:0 0 0 1.5px var(--pass),0 2px 5px rgba(0,0,0,.3);}
+  .pin.sel{outline:3px solid var(--safety); outline-offset:1px; z-index:5;}
+  .pinrow{padding:12px 14px; border-top:1px solid var(--line-2);}
+  .pinrow:first-child{border-top:none;}
+  .pinrow.sel{background:#FFF8E6;}
+  .pinrow .ph{display:flex; align-items:center; gap:10px;}
+  .pinno{width:26px;height:26px;border-radius:50%;background:var(--ng);color:#fff;font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none;}
+  .pinno.done{background:var(--pass);}
+  .pinrow input{width:100%; border:1px solid var(--line); border-radius:8px; padding:9px 10px; background:var(--surface-2); margin-top:7px;}
+  .dwg-empty{text-align:center; padding:30px 18px; color:var(--sub); font-size:13px;}
+  .loading{text-align:center; padding:48px; color:var(--sub);}
+
+  /* ---- PC（広い画面）レイアウト ---- */
+  .desktop-only{display:none !important;}
+  @media (min-width:900px){
+    .app{display:flex; flex-direction:column; max-width:1120px; padding-bottom:32px;}
+    .topbar{order:1;}
+    .hazard{order:2;}
+    .nav{order:3; position:static; bottom:auto; border-top:none; border-bottom:1px solid var(--line); padding-bottom:0; background:#fff;}
+    .nav .navwrap{justify-content:center; gap:6px;}
+    .nav button{flex:0 0 auto; flex-direction:row; gap:8px; padding:13px 22px; font-size:14px; border-bottom:2px solid transparent;}
+    .nav button.on{border-bottom-color:var(--accent);}
+    .nav svg{width:18px; height:18px;}
+    .content{order:4;}
+    .print-area{order:5;}
+    .desktop-only{display:inline-flex !important;}
+    .mobile-only{display:none !important;}
+
+    /* 一覧はカードをグリッド表示 */
+    .insp-list{display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:14px; align-items:start;}
+    /* フォーム・チェックリストは読みやすい幅で中央寄せ */
+    .summary{margin-top:20px;}
+    .dhead,.exrow,.cat,.pad{max-width:780px; margin-left:auto; margin-right:auto;}
+    .dhead{margin-top:20px;}
+    .split{display:grid; grid-template-columns:1.3fr 1fr; gap:16px; align-items:start;}
+    .canvas-wrap{position:sticky; top:16px;}
+    .dwg-toolbar{margin-top:4px;}
+  }
+  @media (hover:hover) and (min-width:900px){
+    .prop,.insp{transition:border-color .12s, box-shadow .12s;}
+    .prop:hover,.insp:hover{border-color:var(--accent-2); box-shadow:0 2px 4px rgba(20,28,36,.08), 0 8px 22px rgba(20,28,36,.10);}
+    .btn-ghost:hover{background:var(--surface-2);}
+  }
+
+  .print-area{display:none;}
+  @media print{
+    @page{margin:14mm;}
+    body{background:#fff;}
+    .topbar,.nav,.fab,.exrow,.toolbar,.add-item,.item-tools,.sec-head .btn{display:none !important;}
+    .app{padding:0; max-width:none;}
+    .print-area{display:block; color:#000; font-size:12px;}
+    .screen{display:none !important;}
+    .pr-sec{page-break-before:always;} .pr-sec:first-child{page-break-before:auto;}
+    .pr-h{display:flex; justify-content:space-between; align-items:flex-end; border-bottom:2px solid #000; padding-bottom:8px; margin-bottom:6px;}
+    .pr-h .t{font-size:17px; font-weight:800;}
+    .pr-meta{display:grid; grid-template-columns:1fr 1fr; gap:2px 24px; font-size:12px; margin:10px 0 12px;}
+    .pr-meta b{display:inline-block; min-width:64px; color:#333;}
+    table.pr{width:100%; border-collapse:collapse;}
+    table.pr th,table.pr td{border:1px solid #888; padding:5px 7px; font-size:11px; vertical-align:top; text-align:left;}
+    table.pr th{background:#eee; font-weight:800;}
+    .pr-cat td{background:#f3f3f3; font-weight:800;}
+    .pr-j{font-weight:800; text-align:center; white-space:nowrap;}
+    .pr-foot{margin-top:12px; font-size:11px; display:flex; gap:30px;}
+    .pd-wrap{display:flex; gap:14px; align-items:flex-start;}
+    .pd-img{position:relative; width:56%; flex:none;}
+    .pd-img img{width:100%; display:block; border:1px solid #999;}
+    .pd-pin{position:absolute; transform:translate(-50%,-50%); width:18px; height:18px; border-radius:50%; background:#C8102E; color:#fff; font-size:10px; font-weight:800; display:flex; align-items:center; justify-content:center; border:1.5px solid #fff;}
+    .pd-table{flex:1;}
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+/* リノベ検査野帳 — 物件単位 / 中間・内装・設備
+   単一HTML（React 18 + Babel + XLSX, CDN）で動作。GitHub Pages配置可。 */
+const {useState,useEffect,useMemo,useRef,createContext,useContext} = React;
+
+/* ---------- storage（localStorageが使えれば永続化、ダメならメモリ） ---------- */
+const KEY="reno-inspect:v2";
+const mem={};
+const store={
+  get(k){ try{const v=localStorage.getItem(k); return v==null?null:JSON.parse(v);}catch(e){return k in mem?mem[k]:null;} },
+  set(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){mem[k]=v;} }
+};
+const uid=()=>Math.random().toString(36).slice(2,9);
+const todayISO=()=>new Date().toISOString().slice(0,10);
+const fmtDate=s=>{ if(!s) return "—"; const [y,m,d]=s.split("-"); return `${y}.${m}.${d}`; };
+
+/* ---------- 画像はIndexedDBへ（PDF図面は容量が大きいため） ---------- */
+function idbOpen(){ return new Promise((res,rej)=>{ const r=indexedDB.open("reno-inspect-db",1);
+  r.onupgradeneeded=()=>{ if(!r.result.objectStoreNames.contains("img")) r.result.createObjectStore("img"); };
+  r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+async function idbSet(k,v){ try{ const db=await idbOpen(); return await new Promise((res,rej)=>{ const tx=db.transaction("img","readwrite"); tx.objectStore("img").put(v,k); tx.oncomplete=()=>res(true); tx.onerror=()=>rej(tx.error); }); }catch(e){ mem["img:"+k]=v; return false; } }
+async function idbGet(k){ try{ const db=await idbOpen(); return await new Promise(res=>{ const tx=db.transaction("img","readonly"); const rq=tx.objectStore("img").get(k); rq.onsuccess=()=>res(rq.result||null); rq.onerror=()=>res(null); }); }catch(e){ return mem["img:"+k]||null; } }
+async function idbDel(k){ try{ const db=await idbOpen(); const tx=db.transaction("img","readwrite"); tx.objectStore("img").delete(k); }catch(e){ delete mem["img:"+k]; } }
+
+/* ---------- pdf.js ---------- */
+let _pdfReady=false;
+function ensurePdf(){ if(_pdfReady) return; if(window.pdfjsLib){ pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; _pdfReady=true; } }
+
+/* ---------- 検査種別・初期テンプレート ---------- */
+const TYPES={
+  chukan:{key:"chukan", name:"中間検査", short:"中間", badge:"b-chukan"},
+  naiso:{key:"naiso", name:"内装仕上げ検査", short:"内装", badge:"b-naiso"},
+  setsubi:{key:"setsubi", name:"設備検査", short:"設備", badge:"b-setsubi"},
+};
+const TYPE_ORDER=["chukan","naiso","setsubi"];
+
+const DEFAULT_TEMPLATES={
+  chukan:[
+    {id:uid(),name:"構造・躯体",items:["柱・梁の寸法と位置","筋かい・補強金物の取付","土台・アンカーボルトの締付","梁・桁の継手・仕口"].map(t=>({id:uid(),label:t}))},
+    {id:uid(),name:"防水・雨仕舞い",items:["防水下地・ルーフィング","サッシ廻りの防水処理","バルコニー・水勾配"].map(t=>({id:uid(),label:t}))},
+    {id:uid(),name:"断熱・気密",items:["断熱材の隙間なき充填","気密シートの連続施工","貫通部の気密処理"].map(t=>({id:uid(),label:t}))},
+    {id:uid(),name:"設備配管（隠蔽前）",items:["給排水管の勾配・接続","電気配線ルート","換気ダクトの経路・接続"].map(t=>({id:uid(),label:t}))},
+  ],
+  naiso:[
+    {id:uid(),name:"壁・天井",items:["クロスの浮き・剥がれ","ジョイント・入隅出隅の納まり","汚れ・キズ・しわ"].map(t=>({id:uid(),label:t}))},
+    {id:uid(),name:"床",items:["フローリングの傷・浮き","見切り材の納まり","床鳴り・きしみ"].map(t=>({id:uid(),label:t}))},
+    {id:uid(),name:"建具",items:["ドア・引戸の開閉と建付け","隙間・チリの均一","金物・ラッチの動作"].map(t=>({id:uid(),label:t}))},
+    {id:uid(),name:"塗装・左官",items:["塗りムラ・タレ","養生跡・マスキング残り"].map(t=>({id:uid(),label:t}))},
+    {id:uid(),name:"造作・取付物",items:["巾木・廻り縁の通り","スイッチ・コンセントの位置と水平","カウンター・棚の固定"].map(t=>({id:uid(),label:t}))},
+  ],
+  setsubi:[
+    {id:uid(),name:"給排水",items:["給水・給湯の通水と水圧","排水の流れ・漏水確認","止水栓・水栓の動作"].map(t=>({id:uid(),label:t}))},
+    {id:uid(),name:"電気",items:["分電盤・ブレーカーの表示","コンセント通電・極性","照明の点灯・スイッチ動作","アース接続"].map(t=>({id:uid(),label:t}))},
+    {id:uid(),name:"空調・換気",items:["エアコンの冷暖運転","24時間換気の作動","レンジフード・浴室乾燥機"].map(t=>({id:uid(),label:t}))},
+    {id:uid(),name:"給湯・ガス",items:["給湯器の着火・設定温度","ガス漏れ確認","リモコンの動作"].map(t=>({id:uid(),label:t}))},
+    {id:uid(),name:"衛生機器",items:["トイレの洗浄・止水","洗面・浴室の動作","IH・食洗機の動作確認"].map(t=>({id:uid(),label:t}))},
+  ],
+};
+
+/* ---------- 集計 ---------- */
+function metrics(insp){
+  const all=insp.results, total=all.length;
+  const checked=all.filter(r=>r.judge!=="none").length;
+  const ng=all.filter(r=>r.judge==="ng").length;
+  const fixed=all.filter(r=>r.judge==="ng"&&r.fixed).length;
+  return {total,checked,ng,fixed,zan:ng-fixed,prog:total?Math.round(checked/total*100):0};
+}
+function propMetrics(prop){
+  let total=0,checked=0,ng=0,fixed=0;
+  prop.inspections.forEach(i=>{const m=metrics(i); total+=m.total; checked+=m.checked; ng+=m.ng; fixed+=m.fixed;});
+  return {count:prop.inspections.length,total,checked,ng,fixed,zan:ng-fixed,prog:total?Math.round(checked/total*100):0};
+}
+
+/* ---------- アイコン ---------- */
+const Ico={
+  dash:p=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>,
+  tmpl:p=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>,
+  back:p=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" width="20" height="20" {...p}><path d="M15 18l-6-6 6-6"/></svg>,
+  plus:p=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" {...p}><path d="M12 5v14M5 12h14"/></svg>,
+  chev:p=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18" {...p}><path d="M9 18l6-6-6-6"/></svg>,
+  search:p=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18" {...p}><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>,
+  xls:p=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="17" height="17" {...p}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13l6 5M15 13l-6 5"/></svg>,
+  pdf:p=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="17" height="17" {...p}><path d="M6 2h9l5 5v15a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><path d="M15 2v5h5"/><path d="M8 14h8M8 18h5"/></svg>,
+  edit:p=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" {...p}><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>,
+  trash:p=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" {...p}><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>,
+  imp:p=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16" {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/></svg>,
+  exp:p=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16" {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M12 15V3"/><path d="M7 8l5-5 5 5"/></svg>,
+};
+
+/* ================= ダイアログ（prompt/confirm の代替・サンドボックスでも動く） ================= */
+const DialogCtx=createContext(null);
+const useDialog=()=>useContext(DialogCtx);
+function DialogProvider({children}){
+  const [st,setSt]=useState(null);
+  const api={
+    input:(o)=>new Promise(res=>setSt({type:"input",value:o.value||"",placeholder:o.placeholder||"",ok:o.ok||"保存",title:o.title,resolve:res})),
+    confirm:(o)=>new Promise(res=>setSt({type:"confirm",ok:o.ok||"削除",danger:o.danger!==false,title:o.title,message:o.message,resolve:res})),
+    alert:(o)=>new Promise(res=>setSt({type:"alert",ok:o.ok||"OK",title:o.title,message:o.message,resolve:res})),
+  };
+  const finish=(v)=>{ const r=st.resolve; setSt(null); r(v); };
+  return <DialogCtx.Provider value={api}>
+    {children}
+    {st && <DialogView st={st} finish={finish}/>}
+  </DialogCtx.Provider>;
+}
+function DialogView({st,finish}){
+  const [v,setV]=useState(st.value||"");
+  return <div className="ovc" onClick={e=>{if(e.target.classList.contains("ovc"))finish(st.type==="confirm"?false:null);}}>
+    <div className="dialog">
+      <h3>{st.title}</h3>
+      {st.type==="input"
+        ? <input className="finput" autoFocus placeholder={st.placeholder} value={v}
+            onChange={e=>setV(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")finish(v.trim()||null);}}/>
+        : <p>{st.message}</p>}
+      <div className="acts">
+        {st.type!=="alert" && <button className="btn btn-ghost btn-block" onClick={()=>finish(st.type==="confirm"?false:null)}>キャンセル</button>}
+        <button className="btn btn-primary btn-block" style={(st.danger&&st.type==="confirm")?{background:"var(--ng)"}:null}
+          onClick={()=>finish(st.type==="confirm"?true:st.type==="alert"?true:(v.trim()||null))}>{st.ok}</button>
+      </div>
+    </div>
+  </div>;
+}
+
+/* ================= APP ================= */
+function App(){
+  const [templates,setTemplates]=useState(()=>store.get(KEY+":t")||DEFAULT_TEMPLATES);
+  const [properties,setProperties]=useState(()=>store.get(KEY+":p")||seedProperties());
+  const [view,setView]=useState({name:"dash"});
+  const [printT,setPrintT]=useState(null); // {prop, insps:[...]}
+
+  useEffect(()=>store.set(KEY+":t",templates),[templates]);
+  useEffect(()=>store.set(KEY+":p",properties),[properties]);
+
+  const prop=properties.find(p=>p.id===view.propId)||null;
+  const insp=prop&&view.inspId?prop.inspections.find(i=>i.id===view.inspId):null;
+  const drawing=prop&&view.drawingId?(prop.drawings||[]).find(d=>d.id===view.drawingId):null;
+
+  const updateProp=(id,fn)=>setProperties(list=>list.map(p=>p.id===id?fn(p):p));
+  const updateInsp=(pid,iid,fn)=>updateProp(pid,p=>({...p,inspections:p.inspections.map(i=>i.id===iid?fn(i):i)}));
+
+  const doPrint=(prop,insps)=>{ setPrintT({kind:"inspection",prop,insps}); setTimeout(()=>window.print(),80); };
+  const doPrintDrawing=(prop,drawing,imgUrl)=>{ setPrintT({kind:"drawing",prop,drawing,imgUrl}); setTimeout(()=>window.print(),140); };
+
+  let title="";
+  if(view.name==="property"&&prop) title=prop.name;
+  if(view.name==="detail"&&insp) title=TYPES[insp.type].name;
+  if(view.name==="drawing"&&drawing) title=drawing.name;
+
+  return <div className="app">
+    <div className="topbar screen"><div className="wrap">
+      {view.name==="dash" && <div className="brand"><b>リノベ検査野帳</b><span>物件・中間・内装・設備</span></div>}
+      {view.name==="property" && <><button className="back-btn" onClick={()=>setView({name:"dash"})}><Ico.back/>物件一覧</button><div className="ttl">{title}</div></>}
+      {view.name==="detail" && <><button className="back-btn" onClick={()=>setView({name:"property",propId:view.propId})}><Ico.back/>{prop?prop.name:"戻る"}</button><div className="ttl">{title}</div></>}
+      {view.name==="drawing" && <><button className="back-btn" onClick={()=>setView({name:"property",propId:view.propId})}><Ico.back/>{prop?prop.name:"戻る"}</button><div className="ttl">{title}</div></>}
+      {view.name==="templates" && <div className="brand"><b>項目テンプレート</b></div>}
+    </div></div>
+    <div className="hazard screen"></div>
+
+    <div className="screen content">
+      {view.name==="dash" && <Dashboard properties={properties}
+        open={p=>setView({name:"property",propId:p.id})}
+        onAdd={p=>{setProperties(l=>[p,...l]); setView({name:"property",propId:p.id});}}
+        onExportAll={()=>exportAllExcel(properties)}
+        onShare={()=>exportShareExcel(properties)}
+        onImport={imported=>setProperties(cur=>mergeImported(cur,imported))} />}
+
+      {view.name==="property" && prop && <PropertyDetail prop={prop}
+        update={fn=>updateProp(prop.id,fn)} templates={templates}
+        openInsp={i=>setView({name:"detail",propId:prop.id,inspId:i.id})}
+        openDrawing={d=>setView({name:"drawing",propId:prop.id,drawingId:d.id})}
+        onDelete={()=>{ setProperties(l=>l.filter(p=>p.id!==prop.id)); setView({name:"dash"}); }}
+        onExcel={()=>exportPropertyExcel(prop)}
+        onPdf={()=>doPrint(prop,prop.inspections)} />}
+
+      {view.name==="detail" && prop && insp && <InspectionDetail prop={prop} insp={insp}
+        update={fn=>updateInsp(prop.id,insp.id,fn)}
+        onDelete={()=>{ updateProp(prop.id,p=>({...p,inspections:p.inspections.filter(i=>i.id!==insp.id)})); setView({name:"property",propId:prop.id}); }}
+        onExcel={()=>exportInspectionExcel(prop,insp)}
+        onPdf={()=>doPrint(prop,[insp])} />}
+
+      {view.name==="drawing" && prop && drawing && <DrawingView prop={prop} drawing={drawing}
+        update={fn=>updateProp(prop.id,p=>({...p,drawings:(p.drawings||[]).map(d=>d.id===drawing.id?fn(d):d)}))}
+        onDelete={()=>{ if(drawing.imgKey) idbDel(drawing.imgKey); updateProp(prop.id,p=>({...p,drawings:(p.drawings||[]).filter(d=>d.id!==drawing.id)})); setView({name:"property",propId:prop.id}); }}
+        onPdf={imgUrl=>doPrintDrawing(prop,drawing,imgUrl)} />}
+
+      {view.name==="templates" && <Templates templates={templates} setTemplates={setTemplates} />}
+    </div>
+
+    <nav className="nav screen"><div className="navwrap">
+      <button className={view.name!=="templates"?"on":""} onClick={()=>setView({name:"dash"})}><Ico.dash/>物件</button>
+      <button className={view.name==="templates"?"on":""} onClick={()=>setView({name:"templates"})}><Ico.tmpl/>項目テンプレート</button>
+    </div></nav>
+
+    {printT && (printT.kind==="drawing"
+      ? <PrintDrawing prop={printT.prop} drawing={printT.drawing} imgUrl={printT.imgUrl} />
+      : <PrintReport prop={printT.prop} insps={printT.insps} />)}
+  </div>;
+}
+
+/* ================= ダッシュボード（物件一覧） ================= */
+function Dashboard({properties,open,onAdd,onExportAll,onShare,onImport}){
+  const dlg=useDialog();
+  const fileRef=useRef(null);
+  const [q,setQ]=useState("");
+  const [onlyZan,setOnlyZan]=useState(false);
+  const [showNew,setShowNew]=useState(false);
+
+  const onFile=async(e)=>{
+    const f=e.target.files&&e.target.files[0]; e.target.value=""; if(!f) return;
+    try{
+      const buf=await f.arrayBuffer(); const wb=XLSX.read(buf,{type:"array"});
+      const imported=parseWorkbook(wb);
+      if(!imported.length){ await dlg.alert({title:"取込できませんでした",message:"検査データが見つかりませんでした。「共有Excelを出力」で書き出したファイルを取り込んでください。"}); return; }
+      onImport(imported);
+      await dlg.alert({title:"取込完了",message:`${imported.length}件の物件を取り込みました。同名の物件は検査をマージしています。`});
+    }catch(err){ await dlg.alert({title:"エラー",message:"ファイルを読み込めませんでした。Excel(.xlsx)を選んでください。"}); }
+  };
+
+  const tot=useMemo(()=>{
+    let insp=0,ng=0,zan=0;
+    properties.forEach(p=>{const m=propMetrics(p); insp+=m.count; ng+=m.ng; zan+=m.zan;});
+    return {props:properties.length,insp,ng,zan};
+  },[properties]);
+
+  const list=properties.filter(p=>{
+    if(q && !p.name.toLowerCase().includes(q.toLowerCase())) return false;
+    if(onlyZan && propMetrics(p).zan===0) return false;
+    return true;
+  });
+
+  return <>
+    <div className="summary"><div className="top">
+      <div className="blk"><div className="lab">物件</div><div className="num mono">{tot.props}</div></div>
+      <div className="div"></div>
+      <div className="blk"><div className="lab">検査</div><div className="num mono">{tot.insp}</div></div>
+      <div className="div"></div>
+      <div className="blk"><div className="lab">指摘 計</div><div className="num ng mono">{tot.ng}</div></div>
+      <div className="div"></div>
+      <div className="blk"><div className="lab">是正残 計</div><div className="num warn mono">{tot.zan}</div></div>
+    </div></div>
+
+    <div className="actbar">
+      <button className="btn btn-ghost btn-sm" onClick={()=>fileRef.current&&fileRef.current.click()}><Ico.imp/>Excelを取込</button>
+      <button className="btn btn-ghost btn-sm" onClick={onShare}><Ico.exp/>共有Excelを出力</button>
+      <button className="btn btn-ghost btn-sm" onClick={onExportAll}><Ico.xls/>一覧サマリ</button>
+      <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={onFile}/>
+    </div>
+
+    <div className="sec-head"><h2>物件一覧</h2>
+      <button className="btn btn-primary btn-sm desktop-only" onClick={()=>setShowNew(true)}><Ico.plus/>物件を追加</button></div>
+
+    <div className="toolbar">
+      <div className="search"><Ico.search/><input placeholder="物件名で検索" value={q} onChange={e=>setQ(e.target.value)}/></div>
+      <button className={"chip"+(onlyZan?" on":"")} onClick={()=>setOnlyZan(v=>!v)}>是正残あり</button>
+    </div>
+
+    <div className="insp-list">
+      {list.length===0 && <div className="empty"><div className="ic">🏠</div>
+        {properties.length===0?"物件がまだありません。右下のボタンから登録できます。":"該当する物件がありません。"}</div>}
+      {list.map(p=>{
+        const m=propMetrics(p);
+        return <div key={p.id} className="prop card" onClick={()=>open(p)}>
+          <div className="row" style={{justifyContent:"space-between",alignItems:"flex-start"}}>
+            <div className="site">{p.name}</div><Ico.chev/>
+          </div>
+          {(p.client||p.address)&&<div className="meta">{p.client&&<span>👤 {p.client}</span>}{p.address&&<span>📍 {p.address}</span>}</div>}
+          <div className="type-chips">
+            {TYPE_ORDER.map(t=>{ const n=p.inspections.filter(i=>i.type===t).length;
+              return <span key={t} className={"tchip "+t+(n?" has":"")}><span className="dot"></span>{TYPES[t].short}{n?` ${n}`:""}</span>;})}
+          </div>
+          <div className="stats">
+            <div className="stat"><div className="v mono">{m.count}</div><div className="k">検査</div></div>
+            <div className="stat"><div className="v ng mono">{m.ng}</div><div className="k">指摘</div></div>
+            <div className="stat"><div className="v zan mono">{m.zan}</div><div className="k">是正残</div></div>
+            <div className="stat"><div className="v done mono">{m.fixed}</div><div className="k">是正済</div></div>
+          </div>
+        </div>;
+      })}
+    </div>
+
+    <button className="fab screen mobile-only" onClick={()=>setShowNew(true)}><Ico.plus/>物件を追加</button>
+    {showNew && <NewProperty onClose={()=>setShowNew(false)} onCreate={p=>{onAdd(p); setShowNew(false);}} />}
+  </>;
+}
+
+function NewProperty({onClose,onCreate}){
+  const [name,setName]=useState(""); const [client,setClient]=useState(""); const [address,setAddress]=useState("");
+  const create=()=>{ if(!name.trim()) return; onCreate({id:uid(),name:name.trim(),client:client.trim(),address:address.trim(),note:"",inspections:[],created:Date.now()}); };
+  return <Sheet title="物件を追加" sub="現場（物件）を登録します。検査は物件の中で種別ごとに作成します。" onClose={onClose}>
+    <div className="flabel">物件名・現場名</div>
+    <input className="finput" autoFocus placeholder="例：佐藤様邸 マンションリノベ" value={name} onChange={e=>setName(e.target.value)}/>
+    <div className="flabel">顧客名</div>
+    <input className="finput" placeholder="例：佐藤 太郎 様" value={client} onChange={e=>setClient(e.target.value)}/>
+    <div className="flabel">住所・所在地</div>
+    <input className="finput" placeholder="例：東京都〇〇区…" value={address} onChange={e=>setAddress(e.target.value)}/>
+    <div className="sheet-actions">
+      <button className="btn btn-ghost btn-block" onClick={onClose}>キャンセル</button>
+      <button className="btn btn-primary btn-block" onClick={create}>登録する</button>
+    </div>
+  </Sheet>;
+}
+
+/* ================= 物件詳細（検査一覧） ================= */
+function PropertyDetail({prop,update,templates,openInsp,openDrawing,onDelete,onExcel,onPdf}){
+  const dlg=useDialog();
+  const m=propMetrics(prop);
+  const [showNew,setShowNew]=useState(false);
+  const [showDwg,setShowDwg]=useState(false);
+  const setHead=patch=>update(p=>({...p,...patch}));
+
+  const remove=async()=>{ if(await dlg.confirm({title:"物件を削除",message:`「${prop.name}」と、含まれる検査をすべて削除します。`})) onDelete(); };
+  const addInsp=(insp)=>{ update(p=>({...p,inspections:[insp,...p.inspections]})); setShowNew(false); openInsp(insp); };
+
+  return <>
+    <div className="dhead card">
+      <div className="row" style={{justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+        <span className="muted" style={{fontSize:12,fontWeight:800,letterSpacing:".1em"}}>物件情報</span>
+        <button onClick={remove} style={{color:"var(--ng)",fontSize:13,fontWeight:700,display:"flex",gap:5,alignItems:"center"}}><Ico.trash/>物件を削除</button>
+      </div>
+      <div className="dfields">
+        <div className="field full"><label>物件名・現場名</label><input value={prop.name} onChange={e=>setHead({name:e.target.value})}/></div>
+        <div className="field"><label>顧客名</label><input value={prop.client} onChange={e=>setHead({client:e.target.value})}/></div>
+        <div className="field"><label>住所</label><input value={prop.address} onChange={e=>setHead({address:e.target.value})}/></div>
+      </div>
+      <div className="stats" style={{marginTop:14}}>
+        <div className="stat"><div className="v mono">{m.count}</div><div className="k">検査</div></div>
+        <div className="stat"><div className="v ng mono">{m.ng}</div><div className="k">指摘</div></div>
+        <div className="stat"><div className="v zan mono">{m.zan}</div><div className="k">是正残</div></div>
+        <div className="stat"><div className="v done mono">{m.fixed}</div><div className="k">是正済</div></div>
+      </div>
+    </div>
+
+    <div className="exrow">
+      <button className="btn btn-ghost btn-block" onClick={onExcel}><Ico.xls/>物件まとめExcel</button>
+      <button className="btn btn-ghost btn-block" onClick={onPdf}><Ico.pdf/>物件まとめPDF</button>
+    </div>
+
+    <div className="sec-head"><h2>検査一覧</h2>
+      <button className="btn btn-primary btn-sm" onClick={()=>setShowNew(true)}><Ico.plus/>検査を追加</button></div>
+
+    <div className="insp-list" style={{paddingTop:0}}>
+      {prop.inspections.length===0 && <div className="empty"><div className="ic">📋</div>「検査を追加」から中間・内装・設備の検査を作成します。</div>}
+      {prop.inspections.map(i=>{ const im=metrics(i); const T=TYPES[i.type];
+        return <div key={i.id} className="insp card" onClick={()=>openInsp(i)}>
+          <div className="hd">
+            <span className={"badge "+T.badge}>{T.name}</span>
+            <div className="row" style={{alignItems:"center",color:"var(--sub)"}}>
+              <span className="mono" style={{fontSize:12.5,fontWeight:700}}>{im.ng>0?`指摘${im.ng} / 是正残${im.zan}`:"指摘なし"}</span><Ico.chev/>
+            </div>
+          </div>
+          <div className="meta"><span>📅 {fmtDate(i.date)}</span>{i.inspector&&<span>👷 {i.inspector}</span>}</div>
+          <div className="pbar"><i style={{width:im.prog+"%"}}></i></div>
+          <div className="pmeta"><span>検査進捗 {im.checked}/{im.total}</span><span>{im.prog}%</span></div>
+        </div>;})}
+    </div>
+
+    <div className="sec-head"><h2>図面（是正マップ）</h2>
+      <button className="btn btn-primary btn-sm" onClick={()=>setShowDwg(true)}><Ico.plus/>図面を追加</button></div>
+    <div className="insp-list dwg-list" style={{paddingTop:0}}>
+      {(prop.drawings||[]).length===0 && <div className="empty"><div className="ic">📐</div>PDF図面を取り込み、是正箇所に番号を付けて管理できます。</div>}
+      {(prop.drawings||[]).map(d=><DrawingCard key={d.id} d={d} onOpen={()=>openDrawing(d)} />)}
+    </div>
+
+    {showNew && <NewInspection templates={templates} onClose={()=>setShowNew(false)} onCreate={addInsp} />}
+    {showDwg && <ImportDrawing onClose={()=>setShowDwg(false)} onCreate={d=>{ update(p=>({...p,drawings:[...(p.drawings||[]),d]})); setShowDwg(false); openDrawing(d); }} />}
+  </>;
+}
+
+function NewInspection({templates,onClose,onCreate}){
+  const [type,setType]=useState("chukan");
+  const [date,setDate]=useState(todayISO());
+  const [inspector,setInspector]=useState("");
+  const create=()=>{
+    const results=[];
+    templates[type].forEach(cat=>cat.items.forEach(it=>results.push({id:uid(),category:cat.name,label:it.label,judge:"none",issue:"",fixed:false,due:""})));
+    onCreate({id:uid(),type,date,inspector:inspector.trim(),results,created:Date.now()});
+  };
+  return <Sheet title="検査を追加" sub="種別を選ぶと、テンプレートの項目が自動で読み込まれます。" onClose={onClose}>
+    <div className="flabel">検査種別</div>
+    <div className="seg">{TYPE_ORDER.map(k=><button key={k} className={type===k?"on":""} onClick={()=>setType(k)}>{TYPES[k].short}<small>{TYPES[k].name}</small></button>)}</div>
+    <div className="row">
+      <div style={{flex:1}}><div className="flabel">検査日</div><input className="finput" type="date" value={date} onChange={e=>setDate(e.target.value)}/></div>
+      <div style={{flex:1}}><div className="flabel">検査者</div><input className="finput" placeholder="氏名" value={inspector} onChange={e=>setInspector(e.target.value)}/></div>
+    </div>
+    <div className="sheet-actions">
+      <button className="btn btn-ghost btn-block" onClick={onClose}>キャンセル</button>
+      <button className="btn btn-primary btn-block" onClick={create}>作成する</button>
+    </div>
+  </Sheet>;
+}
+
+/* ================= 検査詳細（チェックリスト） ================= */
+function InspectionDetail({prop,insp,update,onDelete,onExcel,onPdf}){
+  const dlg=useDialog();
+  const m=metrics(insp); const T=TYPES[insp.type];
+  const cats=[]; insp.results.forEach(r=>{let c=cats.find(x=>x.name===r.category); if(!c){c={name:r.category,items:[]};cats.push(c);} c.items.push(r);});
+
+  const setRes=(id,patch)=>update(i=>({...i,results:i.results.map(r=>r.id===id?{...r,...patch}:r)}));
+  const setHead=patch=>update(i=>({...i,...patch}));
+  const addItem=async(cat)=>{ const label=await dlg.input({title:"検査項目を追加",placeholder:"項目名",ok:"追加"}); if(!label) return;
+    update(i=>({...i,results:[...i.results,{id:uid(),category:cat,label,judge:"none",issue:"",fixed:false,due:""}]})); };
+  const editItem=async(r)=>{ const label=await dlg.input({title:"項目名を編集",value:r.label}); if(!label) return; setRes(r.id,{label}); };
+  const delItem=async(r)=>{ if(await dlg.confirm({title:"項目を削除",message:`「${r.label}」を削除します。`})) update(i=>({...i,results:i.results.filter(x=>x.id!==r.id)})); };
+  const addCat=async()=>{ const name=await dlg.input({title:"カテゴリを追加",placeholder:"カテゴリ名",ok:"追加"}); if(!name) return;
+    update(i=>({...i,results:[...i.results,{id:uid(),category:name,label:"新しい項目",judge:"none",issue:"",fixed:false,due:""}]})); };
+  const remove=async()=>{ if(await dlg.confirm({title:"検査を削除",message:`${T.name}（${fmtDate(insp.date)}）を削除します。`})) onDelete(); };
+
+  return <>
+    <div className="dhead card">
+      <div className="row" style={{justifyContent:"space-between",alignItems:"center"}}>
+        <span className={"badge "+T.badge}>{T.name}</span>
+        <button onClick={remove} style={{color:"var(--ng)",fontSize:13,fontWeight:700,display:"flex",gap:5,alignItems:"center"}}><Ico.trash/>検査を削除</button>
+      </div>
+      <div className="dfields">
+        <div className="field"><label>検査日</label><input type="date" value={insp.date} onChange={e=>setHead({date:e.target.value})}/></div>
+        <div className="field"><label>検査者</label><input value={insp.inspector} onChange={e=>setHead({inspector:e.target.value})}/></div>
+      </div>
+      <div className="stats" style={{marginTop:14}}>
+        <div className="stat"><div className="v mono">{m.checked}/{m.total}</div><div className="k">検査済</div></div>
+        <div className="stat"><div className="v ng mono">{m.ng}</div><div className="k">指摘</div></div>
+        <div className="stat"><div className="v zan mono">{m.zan}</div><div className="k">是正残</div></div>
+        <div className="stat"><div className="v done mono">{m.fixed}</div><div className="k">是正済</div></div>
+      </div>
+    </div>
+
+    <div className="exrow">
+      <button className="btn btn-ghost btn-block" onClick={onExcel}><Ico.xls/>Excel出力</button>
+      <button className="btn btn-ghost btn-block" onClick={onPdf}><Ico.pdf/>PDF出力</button>
+    </div>
+
+    {cats.map((cat,ci)=>{ const ng=cat.items.filter(r=>r.judge==="ng").length;
+      return <div className="cat" key={ci}>
+        <div className="cat-head"><span className="nm">{cat.name}</span>
+          <span className="ct">{cat.items.length}項目{ng>0&&<span style={{color:"var(--ng)"}}>・指摘{ng}</span>}</span></div>
+        <div className="cat-body">
+          {cat.items.map((r,ii)=><ItemRow key={r.id} r={r} no={ii+1} setRes={setRes} editItem={editItem} delItem={delItem}/>)}
+          <button className="add-item" onClick={()=>addItem(cat.name)}>＋ 項目を追加</button>
+        </div>
+      </div>;})}
+
+    <div className="pad"><button className="btn btn-ghost btn-block" onClick={addCat}><Ico.plus/>カテゴリを追加</button></div>
+  </>;
+}
+
+function ItemRow({r,no,setRes,editItem,delItem}){
+  return <div className="item">
+    <div className="lab"><span className="no mono">{no}</span><span className="tx">{r.label}</span></div>
+    <div className="judges">
+      <button className={"jbtn ok"+(r.judge==="ok"?" on":"")} onClick={()=>setRes(r.id,{judge:r.judge==="ok"?"none":"ok"})}>適合</button>
+      <button className={"jbtn ng"+(r.judge==="ng"?" on":"")} onClick={()=>setRes(r.id,{judge:r.judge==="ng"?"none":"ng"})}>指摘</button>
+      <button className={"jbtn na"+(r.judge==="na"?" on":"")} onClick={()=>setRes(r.id,{judge:r.judge==="na"?"none":"na"})}>対象外</button>
+    </div>
+    {r.judge==="ng" && <div className="ng-panel">
+      <textarea placeholder="指摘内容（例：○○に浮きあり。要再施工）" value={r.issue} onChange={e=>setRes(r.id,{issue:e.target.value})}/>
+      <div className="fixrow">
+        <div className="fixtog">
+          <button className={"no"+(!r.fixed?" on":"")} onClick={()=>setRes(r.id,{fixed:false})}>未是正</button>
+          <button className={"yes"+(r.fixed?" on":"")} onClick={()=>setRes(r.id,{fixed:true})}>是正済</button>
+        </div>
+        <input className="due" type="date" value={r.due} onChange={e=>setRes(r.id,{due:e.target.value})}/>
+      </div>
+    </div>}
+    <div className="item-tools">
+      <button onClick={()=>editItem(r)}><Ico.edit/>項目名を編集</button>
+      <button className="del" onClick={()=>delItem(r)}><Ico.trash/>削除</button>
+    </div>
+  </div>;
+}
+
+/* ================= テンプレート編集 ================= */
+function Templates({templates,setTemplates}){
+  const dlg=useDialog();
+  const [type,setType]=useState("chukan");
+  const cats=templates[type];
+  const setCats=fn=>setTemplates(t=>({...t,[type]:fn(t[type])}));
+
+  const addCat=async()=>{ const name=await dlg.input({title:"カテゴリを追加",placeholder:"カテゴリ名",ok:"追加"}); if(!name)return; setCats(c=>[...c,{id:uid(),name,items:[]}]); };
+  const editCat=async(id,n0)=>{ const name=await dlg.input({title:"カテゴリ名を編集",value:n0}); if(!name)return; setCats(c=>c.map(x=>x.id===id?{...x,name}:x)); };
+  const delCat=async(id,n0)=>{ if(await dlg.confirm({title:"カテゴリを削除",message:`「${n0}」を項目ごと削除します。`})) setCats(c=>c.filter(x=>x.id!==id)); };
+  const addItem=async(cid)=>{ const label=await dlg.input({title:"項目を追加",placeholder:"項目名",ok:"追加"}); if(!label)return; setCats(c=>c.map(x=>x.id===cid?{...x,items:[...x.items,{id:uid(),label}]}:x)); };
+  const editItem=async(cid,iid,l0)=>{ const label=await dlg.input({title:"項目名を編集",value:l0}); if(!label)return; setCats(c=>c.map(x=>x.id===cid?{...x,items:x.items.map(it=>it.id===iid?{...it,label}:it)}:x)); };
+  const delItem=async(cid,iid,l0)=>{ if(await dlg.confirm({title:"項目を削除",message:`「${l0}」を削除します。`})) setCats(c=>c.map(x=>x.id===cid?{...x,items:x.items.filter(it=>it.id!==iid)}:x)); };
+  const reset=async()=>{ if(await dlg.confirm({title:"テンプレートを初期化",message:`${TYPES[type].name}の項目を初期状態に戻します。`,ok:"初期化",danger:true})) setTemplates(t=>({...t,[type]:JSON.parse(JSON.stringify(DEFAULT_TEMPLATES[type]))})); };
+
+  return <div className="pad">
+    <div className="seg">{TYPE_ORDER.map(k=><button key={k} className={type===k?"on":""} onClick={()=>setType(k)}>{TYPES[k].short}<small>{TYPES[k].name}</small></button>)}</div>
+    <p className="muted" style={{fontSize:13,margin:"2px 2px 12px"}}>ここで編集した項目が、新規検査の初期チェック項目になります。（作成済みの検査には影響しません）</p>
+
+    {cats.map(cat=><div className="cat-body" key={cat.id} style={{marginBottom:12}}>
+      <div className="item" style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--surface-2)"}}>
+        <b style={{fontSize:14.5}}>{cat.name}</b>
+        <div className="row">
+          <button onClick={()=>editCat(cat.id,cat.name)} style={{color:"var(--sub)"}}><Ico.edit/></button>
+          <button onClick={()=>delCat(cat.id,cat.name)} style={{color:"var(--ng)"}}><Ico.trash/></button>
+        </div>
+      </div>
+      {cat.items.map(it=><div className="item" key={it.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,paddingTop:11,paddingBottom:11}}>
+        <span style={{flex:1,fontSize:14}}>{it.label}</span>
+        <div className="row">
+          <button onClick={()=>editItem(cat.id,it.id,it.label)} style={{color:"var(--sub)"}}><Ico.edit/></button>
+          <button onClick={()=>delItem(cat.id,it.id,it.label)} style={{color:"var(--ng)"}}><Ico.trash/></button>
+        </div>
+      </div>)}
+      <button className="add-item" onClick={()=>addItem(cat.id)}>＋ 項目を追加</button>
+    </div>)}
+
+    <button className="btn btn-ghost btn-block" onClick={addCat} style={{marginTop:4}}><Ico.plus/>カテゴリを追加</button>
+    <button className="btn btn-ghost btn-block" onClick={reset} style={{marginTop:10,color:"var(--sub)"}}>このテンプレートを初期化</button>
+  </div>;
+}
+
+/* ================= 印刷（PDF） ================= */
+const JLABEL={none:"—",ok:"適合",ng:"指摘",na:"対象外"};
+function PrintReport({prop,insps}){
+  return <div className="print-area">
+    {insps.map((insp,si)=>{
+      const m=metrics(insp); const T=TYPES[insp.type];
+      const cats=[]; insp.results.forEach(r=>{let c=cats.find(x=>x.name===r.category); if(!c){c={name:r.category,items:[]};cats.push(c);} c.items.push(r);});
+      return <div className="pr-sec" key={insp.id}>
+        <div className="pr-h"><div className="t">{T.name}　検査表</div><div style={{textAlign:"right",fontSize:12}}>リノベ検査野帳</div></div>
+        <div className="pr-meta">
+          <div><b>物件名</b>{prop.name}</div><div><b>検査日</b>{fmtDate(insp.date)}</div>
+          <div><b>顧客</b>{prop.client||"—"}</div><div><b>検査者</b>{insp.inspector||"—"}</div>
+          <div><b>住所</b>{prop.address||"—"}</div><div><b>集計</b>指摘 {m.ng} / 是正残 {m.zan} / 検査済 {m.checked}/{m.total}</div>
+        </div>
+        <table className="pr">
+          <thead><tr><th style={{width:"4%"}}>No</th><th style={{width:"33%"}}>検査項目</th><th style={{width:"9%"}}>判定</th><th>指摘内容</th><th style={{width:"9%"}}>是正</th><th style={{width:"12%"}}>期限</th></tr></thead>
+          <tbody>{cats.map((cat,ci)=>[
+            <tr key={"c"+ci} className="pr-cat"><td>—</td><td colSpan={5}>{cat.name}</td></tr>,
+            ...cat.items.map((r,ii)=><tr key={r.id}>
+              <td className="mono">{ii+1}</td><td>{r.label}</td><td className="pr-j">{JLABEL[r.judge]}</td>
+              <td>{r.issue||""}</td><td className="pr-j">{r.judge==="ng"?(r.fixed?"是正済":"未"):""}</td><td>{r.due?fmtDate(r.due):""}</td>
+            </tr>)
+          ])}</tbody>
+        </table>
+        <div className="pr-foot"><div>検査者署名：＿＿＿＿＿＿＿＿</div><div>立会署名：＿＿＿＿＿＿＿＿</div></div>
+      </div>;
+    })}
+  </div>;
+}
+
+/* ================= Excel出力 ================= */
+function inspAOA(prop,insp){
+  const m=metrics(insp);
+  const rows=[
+    [TYPES[insp.type].name+"　検査表"],
+    ["物件名",prop.name,"","検査日",fmtDate(insp.date)],
+    ["顧客",prop.client,"","検査者",insp.inspector],
+    ["住所",prop.address,"","集計","指摘 "+m.ng+" / 是正残 "+m.zan+" / 検査済 "+m.checked+"/"+m.total],
+    [],
+    ["カテゴリ","No","検査項目","判定","指摘内容","是正状況","是正期限"],
+  ];
+  const cats=[]; insp.results.forEach(r=>{let c=cats.find(x=>x.name===r.category); if(!c){c={name:r.category,items:[]};cats.push(c);} c.items.push(r);});
+  cats.forEach(cat=>cat.items.forEach((r,ii)=>rows.push([cat.name,ii+1,r.label,JLABEL[r.judge],r.issue||"",
+    r.judge==="ng"?(r.fixed?"是正済":"未是正"):"", r.due?fmtDate(r.due):""])));
+  return rows;
+}
+const setCols=(ws,w)=>{ws["!cols"]=w.map(x=>({wch:x})); return ws;};
+
+function exportInspectionExcel(prop,insp){
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet(inspAOA(prop,insp));
+  ws["!merges"]=[{s:{r:0,c:0},e:{r:0,c:6}}]; setCols(ws,[14,4,30,8,34,10,12]);
+  XLSX.utils.book_append_sheet(wb,ws,"検査表");
+  XLSX.writeFile(wb,`検査表_${prop.name}_${TYPES[insp.type].short}_${insp.date}.xlsx`);
+}
+
+function exportPropertyExcel(prop){
+  const wb=XLSX.utils.book_new();
+  const head=[["検査種別","検査日","検査者","項目数","検査済","指摘数","是正済","是正残","進捗%"]];
+  prop.inspections.forEach(i=>{const m=metrics(i); head.push([TYPES[i.type].name,fmtDate(i.date),i.inspector,m.total,m.checked,m.ng,m.fixed,m.zan,m.prog]);});
+  const sum=XLSX.utils.aoa_to_sheet([["物件名",prop.name],["顧客",prop.client],["住所",prop.address],[],...head]);
+  setCols(sum,[16,12,10,8,8,8,8,8,8]); XLSX.utils.book_append_sheet(wb,sum,"サマリ");
+  const irows=[["検査種別","カテゴリ","検査項目","指摘内容","是正状況","是正期限"]];
+  prop.inspections.forEach(i=>i.results.filter(r=>r.judge==="ng").forEach(r=>irows.push([TYPES[i.type].name,r.category,r.label,r.issue||"",r.fixed?"是正済":"未是正",r.due?fmtDate(r.due):""])));
+  const iss=XLSX.utils.aoa_to_sheet(irows); setCols(iss,[14,14,28,34,10,12]); XLSX.utils.book_append_sheet(wb,iss,"指摘一覧");
+  prop.inspections.forEach(i=>{ const ws=XLSX.utils.aoa_to_sheet(inspAOA(prop,i)); ws["!merges"]=[{s:{r:0,c:0},e:{r:0,c:6}}]; setCols(ws,[14,4,30,8,34,10,12]);
+    XLSX.utils.book_append_sheet(wb,ws,`${TYPES[i.type].short}_${i.date}`.slice(0,31)); });
+  XLSX.writeFile(wb,`物件_${prop.name}_${todayISO()}.xlsx`);
+}
+
+function exportAllExcel(properties){
+  const wb=XLSX.utils.book_new();
+  const prows=[["物件名","顧客","住所","検査数","項目数","検査済","指摘数","是正済","是正残","進捗%"]];
+  properties.forEach(p=>{const m=propMetrics(p); prows.push([p.name,p.client,p.address,m.count,m.total,m.checked,m.ng,m.fixed,m.zan,m.prog]);});
+  const ps=XLSX.utils.aoa_to_sheet(prows); setCols(ps,[24,12,20,8,8,8,8,8,8,8]); XLSX.utils.book_append_sheet(wb,ps,"物件サマリ");
+  const irows=[["物件名","検査種別","検査日","カテゴリ","検査項目","指摘内容","是正状況","是正期限"]];
+  properties.forEach(p=>p.inspections.forEach(i=>i.results.filter(r=>r.judge==="ng").forEach(r=>irows.push([p.name,TYPES[i.type].name,fmtDate(i.date),r.category,r.label,r.issue||"",r.fixed?"是正済":"未是正",r.due?fmtDate(r.due):""]))));
+  const iss=XLSX.utils.aoa_to_sheet(irows); setCols(iss,[22,14,12,14,26,30,10,12]); XLSX.utils.book_append_sheet(wb,iss,"指摘一覧");
+  XLSX.writeFile(wb,`検査一覧_${todayISO()}.xlsx`);
+}
+
+/* ================= ボトムシート ================= */
+function Sheet({title,sub,children,onClose}){
+  return <div className="ov" onClick={e=>{if(e.target.classList.contains("ov"))onClose();}}>
+    <div className="sheet"><h3>{title}</h3>{sub&&<div className="sub">{sub}</div>}{children}</div>
+  </div>;
+}
+
+/* ================= 図面（是正マップ） ================= */
+function ImportDrawing({onClose,onCreate}){
+  const dlg=useDialog();
+  const [name,setName]=useState("");
+  const [doc,setDoc]=useState(null);
+  const [pages,setPages]=useState(0);
+  const [page,setPage]=useState(1);
+  const [busy,setBusy]=useState(false);
+  const fileRef=useRef(null);
+
+  const pick=async(e)=>{
+    const f=e.target.files&&e.target.files[0]; e.target.value=""; if(!f) return;
+    ensurePdf();
+    if(!window.pdfjsLib){ await dlg.alert({title:"PDFを読み込めません",message:"PDF表示ライブラリの読み込みに失敗しました。通信環境をご確認のうえ再度お試しください。"}); return; }
+    setBusy(true);
+    try{ const buf=await f.arrayBuffer(); const pdf=await pdfjsLib.getDocument({data:buf}).promise; setDoc(pdf); setPages(pdf.numPages); setPage(1); setName(n=>n||f.name.replace(/\.pdf$/i,"")); }
+    catch(err){ await dlg.alert({title:"エラー",message:"PDFの読み込みに失敗しました。"}); }
+    setBusy(false);
+  };
+  const create=async()=>{
+    if(!doc){ await dlg.alert({title:"PDF未選択",message:"先にPDFファイルを選択してください。"}); return; }
+    setBusy(true);
+    try{
+      const pg=await doc.getPage(page);
+      const base=pg.getViewport({scale:1});
+      const scale=Math.min(2200/base.width,4);
+      const vp=pg.getViewport({scale});
+      const canvas=document.createElement("canvas"); canvas.width=Math.round(vp.width); canvas.height=Math.round(vp.height);
+      await pg.render({canvasContext:canvas.getContext("2d"),viewport:vp}).promise;
+      const url=canvas.toDataURL("image/jpeg",0.82);
+      const key="dwg_"+uid(); await idbSet(key,url);
+      onCreate({id:uid(),name:(name||"図面").trim(),imgKey:key,w:canvas.width,h:canvas.height,pins:[],created:Date.now()});
+    }catch(err){ setBusy(false); await dlg.alert({title:"エラー",message:"図面の生成に失敗しました。"}); }
+  };
+
+  return <Sheet title="図面を追加（PDF取込）" sub="PDFの図面を取り込み、是正箇所に番号を付けて管理します。" onClose={onClose}>
+    <div className="flabel">図面名</div>
+    <input className="finput" placeholder="例：1階 平面図" value={name} onChange={e=>setName(e.target.value)}/>
+    <div className="flabel">PDFファイル</div>
+    <button className="btn btn-ghost btn-block" onClick={()=>fileRef.current&&fileRef.current.click()}>{busy&&!doc?"読み込み中…":doc?`選択済み（全${pages}ページ）`:"PDFを選択"}</button>
+    <input ref={fileRef} type="file" accept="application/pdf,.pdf" style={{display:"none"}} onChange={pick}/>
+    {pages>1 && <><div className="flabel">使用するページ</div>
+      <input className="finput" type="number" min="1" max={pages} value={page} onChange={e=>setPage(Math.max(1,Math.min(pages,Number(e.target.value)||1)))}/></>}
+    <div className="sheet-actions">
+      <button className="btn btn-ghost btn-block" onClick={onClose}>キャンセル</button>
+      <button className="btn btn-primary btn-block" onClick={create} disabled={busy||!doc} style={(busy||!doc)?{opacity:.5}:null}>{busy&&doc?"処理中…":"取り込む"}</button>
+    </div>
+  </Sheet>;
+}
+
+function DrawingCard({d,onOpen}){
+  const [thumb,setThumb]=useState(null);
+  useEffect(()=>{ let on=true; if(d.imgKey) idbGet(d.imgKey).then(u=>{ if(on) setThumb(u); }); return ()=>{on=false;}; },[d.imgKey]);
+  const open=d.pins.length, done=d.pins.filter(p=>p.done).length;
+  return <div className="dwg-card card" onClick={onOpen}>
+    {thumb?<img className="dwg-thumb" src={thumb} alt=""/>:<div className="dwg-thumb"/>}
+    <div style={{flex:1}}><div className="nm">{d.name}</div>
+      <div className="sub">番号 {open}件{open>0?` ・ 残 ${open-done} / 完了 ${done}`:""}</div></div>
+    <Ico.chev/>
+  </div>;
+}
+
+function DrawingView({prop,drawing,update,onDelete,onPdf}){
+  const dlg=useDialog();
+  const [imgUrl,setImgUrl]=useState(null);
+  const [adding,setAdding]=useState(false);
+  const [sel,setSel]=useState(null);
+  useEffect(()=>{ let on=true; if(drawing.imgKey) idbGet(drawing.imgKey).then(u=>{ if(on) setImgUrl(u); }); return ()=>{on=false;}; },[drawing.imgKey]);
+
+  const nextNo=()=>{ const ns=drawing.pins.map(p=>Number(p.no)||0); return (ns.length?Math.max(...ns):0)+1; };
+  const onCanvasClick=(e)=>{
+    if(!adding) return;
+    const rect=e.currentTarget.getBoundingClientRect();
+    const x=Math.round(((e.clientX-rect.left)/rect.width)*1000)/10;
+    const y=Math.round(((e.clientY-rect.top)/rect.height)*1000)/10;
+    const pin={id:uid(),no:nextNo(),room:"",issue:"",due:"",done:false,x,y};
+    update(d=>({...d,pins:[...d.pins,pin]})); setSel(pin.id); setAdding(false);
+  };
+  const setPin=(id,patch)=>update(d=>({...d,pins:d.pins.map(p=>p.id===id?{...p,...patch}:p)}));
+  const delPin=async(id)=>{ const p=drawing.pins.find(x=>x.id===id); if(await dlg.confirm({title:"番号を削除",message:`番号 ${p?p.no:""} を削除します。`})){ update(d=>({...d,pins:d.pins.filter(x=>x.id!==id)})); setSel(null); } };
+  const rename=async()=>{ const n=await dlg.input({title:"図面名を編集",value:drawing.name}); if(n) update(d=>({...d,name:n})); };
+  const sorted=drawing.pins.slice().sort((a,b)=>a.no-b.no);
+
+  return <>
+    <div className="dhead card">
+      <div className="row" style={{justifyContent:"space-between",alignItems:"center"}}>
+        <div><div className="site">{drawing.name}</div><div className="muted" style={{fontSize:12.5,marginTop:2}}>{prop.name}</div></div>
+        <div className="row">
+          <button onClick={rename} style={{color:"var(--sub)",display:"flex",alignItems:"center",gap:4,fontSize:13,fontWeight:700}}><Ico.edit/>名称</button>
+          <button onClick={onDelete} style={{color:"var(--ng)",display:"flex",alignItems:"center",gap:4,fontSize:13,fontWeight:700}}><Ico.trash/>削除</button>
+        </div>
+      </div>
+    </div>
+
+    <div className="dwg-toolbar">
+      <div className="addmode"><button className={"toggle"+(adding?" on":"")} onClick={()=>setAdding(a=>!a)}><i/></button>{adding?"タップで番号を追加":"番号を追加"}</div>
+      <div style={{flex:1}}/>
+      <button className="btn btn-ghost btn-sm" onClick={()=>onPdf(imgUrl)}><Ico.pdf/>PDF出力</button>
+    </div>
+
+    <div className="split">
+      <div className={"canvas-wrap"+(adding?" adding":"")} onClick={onCanvasClick}>
+        {imgUrl?<img src={imgUrl} alt={drawing.name}/>:<div className="loading">図面を読み込み中…</div>}
+        {imgUrl&&drawing.pins.map(p=><button key={p.id} className={"pin"+(p.done?" done":"")+(sel===p.id?" sel":"")}
+          style={{left:p.x+"%",top:p.y+"%"}} onClick={e=>{e.stopPropagation(); setSel(p.id);}}>{p.no}</button>)}
+      </div>
+
+      <div className="cat-body">
+        {sorted.length===0 && <div className="dwg-empty">「番号を追加」をオンにして図面をタップすると、是正箇所に番号が付きます。</div>}
+        {sorted.map(p=><div key={p.id} className={"pinrow"+(sel===p.id?" sel":"")} onClick={()=>setSel(p.id)}>
+          <div className="ph"><span className={"pinno"+(p.done?" done":"")}>{p.no}</span>
+            <input style={{margin:0,flex:1}} placeholder="部屋名" value={p.room} onChange={e=>setPin(p.id,{room:e.target.value})}/>
+            <button onClick={e=>{e.stopPropagation(); delPin(p.id);}} style={{color:"var(--ng)"}}><Ico.trash/></button></div>
+          <input placeholder="是正内容" value={p.issue} onChange={e=>setPin(p.id,{issue:e.target.value})}/>
+          <div className="row" style={{marginTop:7,alignItems:"center"}}>
+            <input style={{margin:0,flex:1}} type="date" value={p.due} onChange={e=>setPin(p.id,{due:e.target.value})}/>
+            <button className="chip" style={p.done?{background:"var(--pass-bg)",borderColor:"#bfe3cd",color:"var(--pass)"}:null} onClick={e=>{e.stopPropagation(); setPin(p.id,{done:!p.done});}}>{p.done?"完了":"未完了"}</button>
+          </div>
+        </div>)}
+      </div>
+    </div>
+  </>;
+}
+
+function PrintDrawing({prop,drawing,imgUrl}){
+  const pins=drawing.pins.slice().sort((a,b)=>a.no-b.no);
+  return <div className="print-area">
+    <div className="pr-h"><div className="t">{drawing.name}　是正マップ</div><div style={{textAlign:"right",fontSize:12}}>リノベ検査野帳</div></div>
+    <div className="pr-meta">
+      <div><b>物件名</b>{prop.name}</div><div><b>顧客</b>{prop.client||"—"}</div>
+      <div><b>是正件数</b>{pins.length}（残 {pins.filter(p=>!p.done).length}）</div><div><b>出力日</b>{fmtDate(todayISO())}</div>
+    </div>
+    <div className="pd-wrap">
+      <div className="pd-img">{imgUrl&&<img src={imgUrl} alt=""/>}
+        {pins.map(p=><span key={p.id} className="pd-pin" style={{left:p.x+"%",top:p.y+"%"}}>{p.no}</span>)}</div>
+      <table className="pr pd-table">
+        <thead><tr><th style={{width:"10%"}}>番号</th><th style={{width:"26%"}}>部屋名</th><th>是正内容</th><th style={{width:"22%"}}>完了予定日</th></tr></thead>
+        <tbody>{pins.map(p=><tr key={p.id}><td className="pr-j">{p.no}{p.done?" ✓":""}</td><td>{p.room||""}</td><td>{p.issue||""}</td><td>{p.due?fmtDate(p.due):""}</td></tr>)}</tbody>
+      </table>
+    </div>
+  </div>;
+}
+
+/* ================= Excel 共有出力／取込 ================= */
+function judgeFromLabel(s){ s=(s||"").toString().trim(); if(s==="適合")return"ok"; if(s==="指摘")return"ng"; if(s==="対象外")return"na"; return"none"; }
+function typeFromName(s){ s=(s||"").toString().trim(); for(const k of TYPE_ORDER){ if(TYPES[k].name===s||TYPES[k].short===s) return k; } return null; }
+function parseDateCell(v){ if(v==null||v==="") return ""; if(typeof v==="number"&&XLSX.SSF){ const d=XLSX.SSF.parse_date_code(v); if(d) return `${d.y}-${String(d.m).padStart(2,"0")}-${String(d.d).padStart(2,"0")}`; }
+  let s=String(v).trim().replace(/[./]/g,"-"); const m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); return m?`${m[1]}-${m[2].padStart(2,"0")}-${m[3].padStart(2,"0")}`:s; }
+
+function exportShareExcel(properties){
+  const wb=XLSX.utils.book_new();
+  const prow=[["物件名","顧客","住所"]];
+  properties.forEach(p=>prow.push([p.name,p.client,p.address]));
+  const ps=XLSX.utils.aoa_to_sheet(prow); setCols(ps,[26,16,24]); XLSX.utils.book_append_sheet(wb,ps,"物件");
+  const rows=[["物件名","顧客","住所","検査種別","検査日","検査者","カテゴリ","No","検査項目","判定","指摘内容","是正状況","是正期限"]];
+  properties.forEach(p=>{
+    if(!p.inspections.length){ rows.push([p.name,p.client,p.address,"","","","","","","","","",""]); return; }
+    p.inspections.forEach(i=>{ const order=[]; i.results.forEach(r=>{ if(!order.includes(r.category)) order.push(r.category); });
+      order.forEach(cn=>{ let n=0; i.results.filter(r=>r.category===cn).forEach(r=>{ n++;
+        rows.push([p.name,p.client,p.address,TYPES[i.type].name,i.date,i.inspector,cn,n,r.label,JLABEL[r.judge],r.issue||"",r.judge==="ng"?(r.fixed?"是正済":"未是正"):"",r.due||""]); }); });
+    });
+  });
+  const ds=XLSX.utils.aoa_to_sheet(rows); setCols(ds,[22,12,18,14,12,10,14,4,28,8,30,10,12]); XLSX.utils.book_append_sheet(wb,ds,"検査データ");
+  XLSX.writeFile(wb,`共有_検査データ_${todayISO()}.xlsx`);
+}
+
+function parseWorkbook(wb){
+  const props={}, order=[];
+  const ensure=(name,client,address)=>{ name=String(name).trim();
+    if(!props[name]){ props[name]={id:uid(),name,client:client||"",address:address||"",note:"",drawings:[],inspections:[],_insp:{}}; order.push(name); }
+    else { if(client&&!props[name].client)props[name].client=client; if(address&&!props[name].address)props[name].address=address; }
+    return props[name]; };
+  const pSheet=wb.Sheets["物件"];
+  if(pSheet){ XLSX.utils.sheet_to_json(pSheet,{header:1}).slice(1).forEach(r=>{ if(r&&r[0]) ensure(r[0],r[1]?String(r[1]).trim():"",r[2]?String(r[2]).trim():""); }); }
+  const dSheet=wb.Sheets["検査データ"]||wb.Sheets[wb.SheetNames[0]];
+  if(dSheet){
+    const rows=XLSX.utils.sheet_to_json(dSheet,{header:1});
+    let hi=rows.findIndex(r=>r&&r.indexOf&&r.indexOf("検査項目")>=0); if(hi<0) hi=0;
+    const H=(rows[hi]||[]).map(x=>String(x||"").trim()); const col=n=>H.indexOf(n);
+    const c={prop:col("物件名"),client:col("顧客"),addr:col("住所"),type:col("検査種別"),date:col("検査日"),inspector:col("検査者"),cat:col("カテゴリ"),item:col("検査項目"),judge:col("判定"),issue:col("指摘内容"),fix:col("是正状況"),due:col("是正期限")};
+    const g=(r,i)=>i>=0?r[i]:undefined;
+    rows.slice(hi+1).forEach(r=>{
+      if(!r||!r.length) return;
+      const pname=c.prop>=0?String(g(r,c.prop)||"").trim():""; if(!pname) return;
+      const P=ensure(pname, c.client>=0?String(g(r,c.client)||"").trim():"", c.addr>=0?String(g(r,c.addr)||"").trim():"");
+      const tkey=typeFromName(g(r,c.type)); const itemLabel=c.item>=0?String(g(r,c.item)||"").trim():"";
+      if(!tkey||!itemLabel) return;
+      const date=parseDateCell(g(r,c.date)); const inspector=c.inspector>=0?String(g(r,c.inspector)||"").trim():"";
+      const k=tkey+"|"+date+"|"+inspector;
+      if(!P._insp[k]){ P._insp[k]={id:uid(),type:tkey,date,inspector,results:[],created:Date.now()}; P.inspections.push(P._insp[k]); }
+      P._insp[k].results.push({id:uid(),category:c.cat>=0?String(g(r,c.cat)||"").trim():"",label:itemLabel,
+        judge:judgeFromLabel(g(r,c.judge)),issue:c.issue>=0?String(g(r,c.issue)||"").trim():"",
+        fixed:String(g(r,c.fix)||"").trim()==="是正済",due:parseDateCell(g(r,c.due))});
+    });
+  }
+  return order.map(n=>{ const p=props[n]; delete p._insp; return p; });
+}
+
+function mergeImported(cur,imported){
+  const list=cur.map(p=>({...p}));
+  imported.forEach(np=>{
+    const ex=list.find(p=>p.name===np.name);
+    if(!ex){ list.unshift(np); return; }
+    if(np.client&&!ex.client) ex.client=np.client;
+    if(np.address&&!ex.address) ex.address=np.address;
+    ex.inspections=[...ex.inspections];
+    np.inspections.forEach(ni=>{ const idx=ex.inspections.findIndex(i=>i.type===ni.type&&i.date===ni.date&&(i.inspector||"")===(ni.inspector||""));
+      if(idx>=0) ex.inspections[idx]=ni; else ex.inspections.unshift(ni); });
+  });
+  return list;
+}
+
+/* ================= サンプルデータ ================= */
+function seedProperties(){
+  const mk=(type,date,inspector,fill)=>{
+    const results=[];
+    DEFAULT_TEMPLATES[type].forEach(cat=>cat.items.forEach(it=>results.push({id:uid(),category:cat.name,label:it.label,judge:"none",issue:"",fixed:false,due:""})));
+    fill&&fill(results);
+    return {id:uid(),type,date,inspector,results,created:Date.now()};
+  };
+  const p1={id:uid(),name:"佐藤様邸 マンションリノベ",client:"佐藤 太郎 様",address:"東京都目黒区",note:"",created:Date.now(),
+    inspections:[
+      mk("naiso","2026-06-24","田中",r=>{ r.forEach((x,i)=>{if(i<r.length-2)x.judge="ok";});
+        r[1].judge="ng"; r[1].issue="リビング南側、ジョイント部に浮きあり。要補修。"; r[1].due="2026-07-05";
+        r[5].judge="ng"; r[5].issue="廊下フローリングに擦り傷。"; r[5].fixed=true; }),
+      mk("chukan","2026-06-10","田中",r=>{ r[0].judge="ok"; r[1].judge="ok"; r[2].judge="ok"; }),
+    ]};
+  const p2={id:uid(),name:"鈴木様邸 戸建てフルリノベ",client:"鈴木 花子 様",address:"神奈川県横浜市",note:"",created:Date.now(),
+    inspections:[
+      mk("setsubi","2026-06-27","田中",r=>{ r.forEach((x,i)=>{if(i<8)x.judge="ok";});
+        r[6].judge="ng"; r[6].issue="洗面台の排水接続部にわずかな漏水。パッキン交換要。"; r[6].due="2026-07-02"; }),
+    ]};
+  const p3={id:uid(),name:"高橋様邸 二世帯改修",client:"高橋 様",address:"埼玉県さいたま市",note:"",created:Date.now(),
+    inspections:[ mk("chukan","2026-06-29","佐々木",r=>{ r[0].judge="ok"; r[1].judge="ok"; }) ]};
+  return [p3,p2,p1];
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<DialogProvider><App/></DialogProvider>);
+
+</script>
+</body>
+</html>
