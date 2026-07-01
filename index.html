@@ -271,6 +271,9 @@
     .pd-pin{position:absolute; transform:translate(-50%,-50%); width:18px; height:18px; border-radius:50%; background:#C8102E; color:#fff; font-size:10px; font-weight:800; display:flex; align-items:center; justify-content:center; border:1.5px solid #fff; -webkit-print-color-adjust:exact; print-color-adjust:exact;}
     .pd-pin.done{background:#137A4E;}
     .pd-table{flex:1;}
+    table.pr td.pr-no{text-align:center; font-weight:800; white-space:nowrap;}
+    table.pr tr.done td{background:#E4F2EA;}
+    table.pr tr.done td.pr-no{background:#137A4E; color:#fff;}
   }
 </style>
 </head>
@@ -314,10 +317,52 @@ const TYPE_ORDER=["chukan","naiso","setsubi"];
 
 const DEFAULT_TEMPLATES={
   chukan:[
-    {id:uid(),name:"構造・躯体",items:["柱・梁の寸法と位置","筋かい・補強金物の取付","土台・アンカーボルトの締付","梁・桁の継手・仕口"].map(t=>({id:uid(),label:t}))},
-    {id:uid(),name:"防水・雨仕舞い",items:["防水下地・ルーフィング","サッシ廻りの防水処理","バルコニー・水勾配"].map(t=>({id:uid(),label:t}))},
-    {id:uid(),name:"断熱・気密",items:["断熱材の隙間なき充填","気密シートの連続施工","貫通部の気密処理"].map(t=>({id:uid(),label:t}))},
-    {id:uid(),name:"設備配管（隠蔽前）",items:["給排水管の勾配・接続","電気配線ルート","換気ダクトの経路・接続"].map(t=>({id:uid(),label:t}))},
+    {id:uid(),name:"仮設・解体工事",items:[
+      "共用廊下・エレベーターの養生状況",
+      "玄関外の掲示物の確認（建設業許可、労災保険、石綿事前調査）（法定事項）"
+    ].map(t=>({id:uid(),label:t}))},
+    {id:uid(),name:"木工事",items:[
+      "壁間柱は適切に配置されている（LGS@303㎜以下、木軸@303㎜、横胴縁@909㎜以下）",
+      "開き戸縦軸の補強がされている（軸ダブル、合板補強、芯材補強）　施建8-4間仕切り壁",
+      "壁面の遮音対策がされている（トイレ内壁・天井、居室に面したPS壁）",
+      "取付下地（タオル掛け、ペーパーホルダー等）が適切に設置されている（異種ジョイントが無い）",
+      "天井下地が適切に配置されている（野縁受け@910、野縁@455以内）",
+      "床遮音性能が適切である（遮音フローリング、遮音支持脚使用、管理規約・既存性能以上の確認）",
+      "必要な箇所に点検口があり（さや管ヘッダー、漏水センサー等）内部を清掃している",
+      "PB固定状況が適切である（壁ビス周辺部@200、中間部@300／天井ビス周辺部@150、中間部@200）",
+      "枠周りの壁PBは、かぎ貼りされている",
+      "天井のジョイントをずらしている"
+    ].map(t=>({id:uid(),label:t}))},
+    {id:uid(),name:"電気",items:[
+      "既存分電盤回路名称確認（契約・最大容量の確認）",
+      "電灯・スイッチ・コンセント・弱電の箇所数、位置が設計図書通りである（情報線移設に伴う空配管の経路も記載のこと）",
+      "大容量機器用に専用回路を使用している（IH、食洗機、コンベック、冷蔵庫、家電用、トイレ、エアコン、電気式浴室乾燥機）",
+      "キッチン（レンジフード）：隠蔽部コンセントの固定",
+      "電話配線・インターネット光配線移設時、必要な箇所に点検口があり、適切に配管されている"
+    ].map(t=>({id:uid(),label:t}))},
+    {id:uid(),name:"給排水配管",items:[
+      "給水・給湯管の配管支持の確認（レベルバンドにて1m以内かつ継手直近で支持）",
+      "曲がり継手部分は透明エルボを使用する（区画部分半径1m範囲は使用しない）",
+      "配管継手部の接着状況確認（VP管同士は青色、HTVP管とVP管・HTVP管同士は緑色）",
+      "トイレ排水管勾配（1/75以上）確認（勾配計にて計測記録）",
+      "キッチン排水管勾配（1/50以上）確認（勾配計にて計測記録）",
+      "洗面・ユニットバス排水管勾配（1/50以上）確認（勾配計にて計測記録）",
+      "排水管の耐火配管使用および防火区画（使用材および範囲）の確認（区画から半径1m耐火仕様、異種管での接続はNG）",
+      "洗濯パンの排水管には松栄ゴムを使用（フレキ材はNG）",
+      "配管更新の写真報告（全更新）：全箇所（既存配管との接続、キッチン、UB、洗面、トイレ、洗濯他）",
+      "配管更新の写真報告（部分更新）：全箇所（既存配管との接続、キッチン、UB、洗面、トイレ、洗濯他）",
+      "配管更新の写真報告（追い炊き管PT）：既存配管との接続状況",
+      "床暖房または温水式浴室乾燥機がある場合、給湯器側でヘッダーが外されている、もしくは末端でキャップ止めされている"
+    ].map(t=>({id:uid(),label:t}))},
+    {id:uid(),name:"空調工事",items:[
+      "エアコン取付高さが確保されている（標準450㎜以上、最小400㎜・スリム350㎜以上）",
+      "室外機想定位置＋1m程度の余裕がある",
+      "空調用制御線はVVF3C－2.0㎜で配線されている",
+      "エアコンドレン先行配管は塩ビ管を使用し、断熱されている、もしくはACドレンパイプを使用している",
+      "横引きドレン配管勾配（1/100以上）確認",
+      "ドレンを排水管へ接続する場合は、臭気防止対策としてドレントラップを設置し、点検口を設ける（ウォレスまたはカクダイ）",
+      "火気使用部（キッチン排気）はスパイラル管を使用している"
+    ].map(t=>({id:uid(),label:t}))},
   ],
   naiso:[
     {id:uid(),name:"壁・天井",items:["クロスの浮き・剥がれ","ジョイント・入隅出隅の納まり","汚れ・キズ・しわ"].map(t=>({id:uid(),label:t}))},
@@ -976,7 +1021,7 @@ function DrawingView({prop,drawing,update,onDelete,onPdf}){
     const rect=e.currentTarget.getBoundingClientRect();
     const x=Math.round(((e.clientX-rect.left)/rect.width)*1000)/10;
     const y=Math.round(((e.clientY-rect.top)/rect.height)*1000)/10;
-    const pin={id:uid(),no:nextNo(),room:"",issue:"",due:"",done:false,x,y};
+    const pin={id:uid(),no:nextNo(),room:"",issue:"",assignee:"",due:"",done:false,x,y};
     update(d=>({...d,pins:[...d.pins,pin]})); setSel(pin.id); setAdding(false);
   };
   const setPin=(id,patch)=>update(d=>({...d,pins:d.pins.map(p=>p.id===id?{...p,...patch}:p)}));
@@ -1036,6 +1081,7 @@ function DrawingView({prop,drawing,update,onDelete,onPdf}){
             <input style={{margin:0,flex:1}} placeholder="部屋名" value={p.room} onChange={e=>setPin(p.id,{room:e.target.value})}/>
             <button onClick={e=>{e.stopPropagation(); delPin(p.id);}} style={{color:"var(--ng)"}}><Ico.trash/></button></div>
           <input placeholder="是正内容" value={p.issue} onChange={e=>setPin(p.id,{issue:e.target.value})}/>
+          <input placeholder="対応者" value={p.assignee||""} onChange={e=>setPin(p.id,{assignee:e.target.value})}/>
           <div className="row" style={{marginTop:7,alignItems:"center"}}>
             <input style={{margin:0,flex:1}} type="date" value={p.due} onChange={e=>setPin(p.id,{due:e.target.value})}/>
             <button className="chip" style={p.done?{background:"var(--pass-bg)",borderColor:"#bfe3cd",color:"var(--pass)"}:null} onClick={e=>{e.stopPropagation(); setPin(p.id,{done:!p.done});}}>{p.done?"完了":"未完了"}</button>
@@ -1058,8 +1104,8 @@ function PrintDrawing({prop,drawing,imgUrl}){
       <div className="pd-img">{imgUrl&&<img src={imgUrl} alt=""/>}
         {pins.map(p=><span key={p.id} className={"pd-pin"+(p.done?" done":"")} style={{left:p.x+"%",top:p.y+"%"}}>{p.no}</span>)}</div>
       <table className="pr pd-table">
-        <thead><tr><th style={{width:"10%"}}>番号</th><th style={{width:"26%"}}>部屋名</th><th>是正内容</th><th style={{width:"22%"}}>完了予定日</th></tr></thead>
-        <tbody>{pins.map(p=><tr key={p.id}><td className="pr-j">{p.no}{p.done?" ✓":""}</td><td>{p.room||""}</td><td>{p.issue||""}</td><td>{p.due?fmtDate(p.due):""}</td></tr>)}</tbody>
+        <thead><tr><th style={{width:"8%"}}>番号</th><th style={{width:"20%"}}>部屋名</th><th>是正内容</th><th style={{width:"16%"}}>対応</th><th style={{width:"17%"}}>完了予定日</th></tr></thead>
+        <tbody>{pins.map(p=><tr key={p.id} className={p.done?"done":""}><td className="pr-j pr-no">{p.no}{p.done?" ✓":""}</td><td>{p.room||""}</td><td>{p.issue||""}</td><td>{p.assignee||""}</td><td>{p.due?fmtDate(p.due):""}</td></tr>)}</tbody>
       </table>
     </div>
   </div>;
