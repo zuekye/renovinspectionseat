@@ -11,239 +11,279 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
+  /* ================= Excel帳票デザイン =================
+     紙のシートを罫線で組む。角丸・影・装飾を排し、
+     1pxグリッドとセル塗りだけで状態を表現する。 */
   :root{
-    --bg:#F4F6F8; --surface:#FFFFFF; --surface-2:#F4F5F7;
-    --ink:#1E242B; --sub:#69727B; --line:#D8DCE0; --line-2:#E5E8EB;
-    --pass:#137A4E; --pass-bg:#E4F2EA;
-    --ng:#C8102E; --ng-bg:#FBE6E9;
-    --na:#79818A; --na-bg:#ECEEF0;
-    --accent:#0E4F7D; --accent-2:#1769A8;
-    --safety:#F2B600; --ink-bar:#222831;
-    --shadow:0 1px 2px rgba(20,28,36,.06), 0 4px 14px rgba(20,28,36,.06);
+    --bg:#E9EBEE; --surface:#FFFFFF; --surface-2:#F3F5F7;
+    --ink:#20262C; --sub:#67717C; --line:#C9CFD6; --line-2:#E3E7EB;
+    --pass:#217346; --pass-bg:#E9F2EC;
+    --ng:#BE2333; --ng-bg:#FAECEE;
+    --na:#79818A; --na-bg:#EEF0F2;
+    --accent:#1F4E79; --accent-2:#2B6CA3; --sel:#E8EFF6;
+    --warn:#9A6B00; --warn-bg:#FBF4DE;
+    --shadow:0 10px 30px rgba(25,32,40,.16);
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;}
   body{
-    background:var(--bg); color:var(--ink);
-    font-family:-apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Noto Sans JP", "Yu Gothic", Meiryo, sans-serif;
-    -webkit-font-smoothing:antialiased; line-height:1.5;
+    background:var(--bg); color:var(--ink); font-size:14px;
+    font-family:-apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", "Noto Sans JP", Meiryo, sans-serif;
+    -webkit-font-smoothing:antialiased; line-height:1.55;
   }
-  .mono{font-family:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace; font-feature-settings:"tnum" 1; letter-spacing:-.01em;}
+  .mono{font-family:Consolas,"SF Mono",SFMono-Regular,Menlo,"Courier New",monospace; font-feature-settings:"tnum" 1; letter-spacing:0;}
   button{font-family:inherit; cursor:pointer; border:none; background:none; color:inherit;}
-  input,textarea,select{font-family:inherit; font-size:16px;}
-  .app{max-width:860px; margin:0 auto; min-height:100vh; padding-bottom:calc(84px + env(safe-area-inset-bottom));}
+  input,textarea,select{font-family:inherit; font-size:16px; color:var(--ink);}
+  input:focus,textarea:focus,select:focus{outline:2px solid var(--accent); outline-offset:-1px;}
+  .app{max-width:860px; margin:0 auto; min-height:100vh; padding-bottom:calc(80px + env(safe-area-inset-bottom));}
 
-  .topbar{position:sticky; top:0; z-index:30; background:var(--surface); color:var(--ink); border-bottom:1px solid var(--line); padding:calc(env(safe-area-inset-top) + 12px) 18px 12px;}
+  .topbar{position:sticky; top:0; z-index:30; background:var(--surface); color:var(--ink); border-bottom:1px solid var(--line); padding:calc(env(safe-area-inset-top) + 11px) 16px 11px;}
   .topbar .wrap{display:flex; align-items:center; gap:12px;}
   .brand{display:flex; align-items:baseline; gap:9px;}
-  .brand b{font-size:19px; font-weight:800; letter-spacing:.04em;}
-  .brand span{font-size:11px; color:var(--sub); letter-spacing:.18em; font-weight:600;}
-  .back-btn{display:flex; align-items:center; gap:5px; font-weight:700; font-size:15px; color:var(--accent);}
-  .topbar .ttl{font-size:16px; font-weight:800; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .brand b{font-size:15.5px; font-weight:700; letter-spacing:.05em;}
+  .back-btn{display:flex; align-items:center; gap:4px; font-weight:600; font-size:14px; color:var(--accent);}
+  .topbar .ttl{font-size:15px; font-weight:700; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 
   .pad{padding:16px;}
-  .card{background:var(--surface); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow);}
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:3px;}
   .muted{color:var(--sub);}
   .row{display:flex; gap:10px;}
 
-  .summary{margin:16px 16px 6px; background:var(--surface); color:var(--ink); border:1px solid var(--line); border-radius:16px; overflow:hidden; box-shadow:var(--shadow);}
-  .summary .top{padding:15px 14px; display:flex;}
-  .summary .blk{flex:1; text-align:center; padding:0 4px;}
-  .summary .lab{font-size:10.5px; letter-spacing:.08em; color:var(--sub); font-weight:700;}
-  .summary .num{font-size:27px; font-weight:800; line-height:1.1; margin-top:2px;}
-  .summary .num.warn{color:#B8860B;}
+  /* サマリー：罫線で区切った集計行 */
+  .summary{margin:14px 16px 0; background:var(--surface); border:1px solid var(--line); border-radius:3px; overflow:hidden;}
+  .summary .top{display:flex;}
+  .summary .blk{flex:1; text-align:center; padding:9px 4px 10px;}
+  .summary .lab{font-size:10px; letter-spacing:.06em; color:var(--sub); font-weight:600; border-bottom:1px solid var(--line-2); background:var(--surface-2); margin:-9px -4px 8px; padding:5px 2px;}
+  .summary .num{font-size:22px; font-weight:700; line-height:1.1;}
+  .summary .num.warn{color:var(--warn);}
   .summary .num.ng{color:var(--ng);}
-  .summary .div{width:1px; background:var(--line); margin:2px 0;}
+  .summary .div{width:1px; background:var(--line-2);}
 
-  .sec-head{display:flex; align-items:center; justify-content:space-between; margin:18px 16px 10px;}
-  .sec-head h2{font-size:15px; font-weight:800; margin:0; letter-spacing:.02em;}
+  .sec-head{display:flex; align-items:center; justify-content:space-between; gap:10px; margin:20px 16px 8px; padding-bottom:6px; border-bottom:1px solid var(--line);}
+  .sec-head h2{font-size:13.5px; font-weight:700; margin:0; letter-spacing:.03em;}
 
-  .btn{display:inline-flex; align-items:center; justify-content:center; gap:7px; font-weight:700; border-radius:11px; padding:11px 15px; font-size:14px; transition:.12s; min-height:44px;}
-  .btn:active{transform:scale(.98);}
-  .btn-primary{background:var(--accent); color:#fff;}
+  .btn{display:inline-flex; align-items:center; justify-content:center; gap:6px; font-weight:600; border-radius:3px; padding:10px 14px; font-size:13.5px; min-height:42px; border:1px solid var(--line); background:var(--surface); color:var(--ink);}
+  .btn:active{background:var(--surface-2);}
+  .btn-primary{background:var(--accent); border-color:transparent; color:#fff; background-clip:padding-box;}
+  .btn-primary:active{background:#173C5D;}
   .btn-ghost{background:var(--surface); color:var(--accent); border:1px solid var(--line);}
-  .btn-sm{padding:8px 12px; min-height:38px; font-size:13px; border-radius:9px;}
+  .btn-sm{padding:7px 11px; min-height:34px; font-size:12.5px;}
   .btn-block{width:100%;}
 
-  .toolbar{margin:0 16px 4px; display:flex; gap:8px; align-items:center;}
-  .search{flex:1; display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--line); border-radius:11px; padding:0 12px;}
-  .search input{border:none; outline:none; padding:11px 0; width:100%; background:none;}
-  .chip{padding:9px 13px; border-radius:11px; border:1px solid var(--line); background:var(--surface); font-size:13px; font-weight:700; color:var(--sub); white-space:nowrap;}
-  .chip.on{background:var(--ng-bg); border-color:#f3c6cd; color:var(--ng);}
+  .toolbar{margin:12px 16px 0; display:flex; gap:8px; align-items:center;}
+  .search{flex:1; display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--line); border-radius:3px; padding:0 11px; color:var(--sub);}
+  .search input{border:none; outline:none; padding:10px 0; width:100%; background:none;}
+  .search input:focus{outline:none;}
+  .search:focus-within{outline:2px solid var(--accent); outline-offset:-1px;}
+  .chip{padding:8px 12px; border-radius:3px; border:1px solid var(--line); background:var(--surface); font-size:12.5px; font-weight:600; color:var(--sub); white-space:nowrap;}
+  .chip.on{background:var(--ng-bg); border-color:var(--ng); color:var(--ng);}
   .sortbar{display:flex; align-items:center; gap:8px; margin:8px 16px 0;}
-  .sortbar label{font-size:12px; font-weight:800; color:var(--sub); white-space:nowrap;}
-  .sortsel{flex:1; border:1px solid var(--line); border-radius:11px; padding:10px 12px; background:var(--surface); font-weight:700; color:var(--ink); font-size:14px;}
-  .month-head{font-size:12px; font-weight:800; color:var(--sub); letter-spacing:.04em; margin:16px 16px 2px;}
-  .prop.done{opacity:.5;}
+  .sortbar label{font-size:12px; font-weight:600; color:var(--sub); white-space:nowrap;}
+  .sortsel{flex:1; border:1px solid var(--line); border-radius:3px; padding:9px 10px; background:var(--surface); font-weight:600; color:var(--ink); font-size:13.5px;}
+  .month-head{font-size:11.5px; font-weight:700; color:var(--sub); letter-spacing:.05em; margin:14px 16px 0; padding:6px 10px; background:var(--surface-2); border:1px solid var(--line); border-bottom:none;}
+  .month-head+.insp-list{padding-top:0;}
+  .month-head+.insp-list>.card:first-child{border-radius:0 0 3px 3px;}
+  .prop.done{opacity:.55;}
   .prop.done .site{color:var(--sub);}
-  .done-chip{font-size:11px; font-weight:800; padding:4px 9px; border-radius:999px; background:var(--pass-bg); color:var(--pass); white-space:nowrap;}
+  .done-chip{font-size:10.5px; font-weight:700; padding:3px 8px; border-radius:2px; background:var(--pass-bg); border:1px solid var(--pass); color:var(--pass); white-space:nowrap;}
 
-  .insp-list{padding:6px 16px 24px; display:flex; flex-direction:column; gap:12px;}
-  .prop{padding:15px 16px; cursor:pointer;}
-  .prop .site{font-size:17px; font-weight:800; line-height:1.25;}
-  .prop .meta{font-size:12.5px; color:var(--sub); margin-top:3px; display:flex; gap:12px; flex-wrap:wrap;}
-  .type-chips{display:flex; gap:6px; margin-top:11px; flex-wrap:wrap;}
-  .tchip{font-size:11px; font-weight:800; padding:5px 9px; border-radius:8px; border:1px solid var(--line); color:var(--sub); background:var(--surface-2); display:flex; gap:6px; align-items:center;}
-  .tchip .dot{width:7px;height:7px;border-radius:99px;background:var(--line);}
-  .tchip.has.chukan{color:var(--accent);} .tchip.has.naiso{color:#6B3FA0;} .tchip.has.setsubi{color:var(--pass);}
-  .tchip.has .dot{background:currentColor;}
+  .insp-list{padding:10px 16px 24px; display:flex; flex-direction:column; gap:10px;}
+  .prop{padding:13px 14px; cursor:pointer;}
+  .prop .site{font-size:15.5px; font-weight:700; line-height:1.3;}
+  .prop .meta{font-size:12px; color:var(--sub); margin-top:3px; display:flex; gap:12px; flex-wrap:wrap;}
 
-  .badge{font-size:11px; font-weight:800; padding:4px 9px; border-radius:999px; white-space:nowrap; letter-spacing:.04em;}
-  .b-chukan{background:#E8EFF6; color:var(--accent);}
-  .b-naiso{background:#F1ECF7; color:#6B3FA0;}
-  .b-setsubi{background:#E9F4EF; color:var(--pass);}
+  .badge{font-size:11px; font-weight:700; padding:3px 8px; border-radius:2px; white-space:nowrap; letter-spacing:.03em; border:1px solid transparent;}
+  .b-chukan{background:#EAF0F6; color:var(--accent); border-color:#B9CBDC;}
+  .b-naiso{background:#F0EBF6; color:#5F3D91; border-color:#CDBEE2;}
+  .b-setsubi{background:var(--pass-bg); color:var(--pass); border-color:#B4D4C1;}
+  .b-shunko{background:#FBF0E1; color:#A05A10; border-color:#E4C79E;}
 
-  .stats{display:flex; gap:8px; margin-top:13px;}
-  .stat{flex:1; background:var(--surface-2); border-radius:10px; padding:9px 4px; text-align:center;}
-  .stat .v{font-size:20px; font-weight:800; line-height:1;}
-  .stat .v.ng{color:var(--ng);} .stat .v.zan{color:#B8860B;} .stat .v.done{color:var(--pass);}
-  .stat .k{font-size:10.5px; color:var(--sub); margin-top:4px; font-weight:700;}
-  .pbar{height:7px; border-radius:99px; background:var(--line-2); margin-top:12px; overflow:hidden;}
-  .pbar i{display:block; height:100%; background:var(--pass); border-radius:99px;}
-  .pmeta{display:flex; justify-content:space-between; font-size:11px; color:var(--sub); margin-top:6px; font-weight:600;}
+  /* 統計：セル方式（背景＝罫線色、gap 1px） */
+  .stats{display:flex; gap:1px; margin-top:12px; background:var(--line-2); border:1px solid var(--line-2);}
+  .stat{flex:1; background:var(--surface); padding:7px 4px 8px; text-align:center;}
+  .stat .v{font-size:17px; font-weight:700; line-height:1.15;}
+  .stat .v.ng{color:var(--ng);} .stat .v.zan{color:var(--warn);} .stat .v.done{color:var(--pass);}
+  .stat .k{font-size:10px; color:var(--sub); margin-top:2px; font-weight:600; letter-spacing:.04em;}
+  .pbar{height:5px; background:var(--line-2); margin-top:11px; overflow:hidden;}
+  .pbar i{display:block; height:100%; background:var(--pass);}
+  .pmeta{display:flex; justify-content:space-between; font-size:11px; color:var(--sub); margin-top:5px; font-weight:600;}
 
-  .insp{padding:14px 15px; cursor:pointer;}
+  .insp{padding:13px 14px; cursor:pointer;}
   .insp .hd{display:flex; align-items:flex-start; justify-content:space-between; gap:10px;}
-  .insp .meta{font-size:12.5px; color:var(--sub); margin-top:6px; display:flex; gap:12px; flex-wrap:wrap;}
+  .insp .meta{font-size:12px; color:var(--sub); margin-top:7px; display:flex; gap:12px; flex-wrap:wrap;}
 
-  .dhead{margin:16px; padding:16px;}
-  .dhead .site{font-size:20px; font-weight:800;}
-  .dfields{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px;}
-  .field label{display:block; font-size:11px; font-weight:800; color:var(--sub); letter-spacing:.04em; margin-bottom:5px;}
-  .field input{width:100%; border:1px solid var(--line); border-radius:10px; padding:10px 12px; background:var(--surface-2);}
+  .dhead{margin:14px 16px 0; padding:14px;}
+  .dhead .site{font-size:17px; font-weight:700;}
+  .dfields{display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-top:13px;}
+  .field label{display:block; font-size:11px; font-weight:600; color:var(--sub); letter-spacing:.04em; margin-bottom:4px;}
+  .field input{width:100%; border:1px solid var(--line); border-radius:2px; padding:9px 10px; background:var(--surface);}
   .field.full{grid-column:1 / -1;}
 
-  .exrow{display:flex; gap:8px; margin:0 16px 4px;}
+  .exrow{display:flex; gap:8px; margin:10px 16px 0;}
 
-  .cat{margin:14px 16px;}
-  .cat-head{display:flex; align-items:center; gap:8px; padding:0 2px 8px;}
-  .cat-head .nm{font-size:14px; font-weight:800; flex:1;}
-  .cat-head .ct{font-size:11px; color:var(--sub); font-weight:700;}
-  .cat-body{background:var(--surface); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); overflow:hidden;}
-  .item{padding:13px 14px; border-top:1px solid var(--line-2);}
+  .cat{margin:16px 16px;}
+  .cat-head{display:flex; align-items:center; gap:8px; padding:7px 10px; background:var(--surface-2); border:1px solid var(--line); border-bottom:none;}
+  .cat-head .nm{font-size:13px; font-weight:700; flex:1;}
+  .cat-head .ct{font-size:11px; color:var(--sub); font-weight:600;}
+  .cat-body{background:var(--surface); border:1px solid var(--line); border-radius:0 0 3px 3px; overflow:hidden;}
+  .insp-list .cat-body,.split .cat-body{border-radius:3px;}
+  .item{padding:12px 12px; border-top:1px solid var(--line-2);}
   .item:first-child{border-top:none;}
-  .item .lab{font-size:14.5px; font-weight:600; display:flex; gap:8px; align-items:flex-start;}
-  .item .lab .no{color:var(--sub); font-weight:800; font-size:12px; min-width:20px; padding-top:2px;}
+  .item .lab{font-size:13.5px; font-weight:500; display:flex; gap:8px; align-items:flex-start;}
+  .item .lab .no{color:var(--sub); font-weight:600; font-size:11.5px; min-width:20px; padding-top:2px;}
   .item .lab .tx{flex:1;}
-  .judges{display:flex; gap:7px; margin-top:11px;}
-  .jbtn{flex:1; padding:10px 4px; border-radius:10px; border:1.5px solid var(--line); background:var(--surface); font-weight:800; font-size:13.5px; color:var(--sub); text-align:center;}
-  .jbtn.ok.on{background:var(--pass-bg); border-color:var(--pass); color:var(--pass);}
-  .jbtn.ng.on{background:var(--ng-bg); border-color:var(--ng); color:var(--ng);}
-  .jbtn.na.on{background:var(--na-bg); border-color:var(--na); color:var(--ink);}
+  .judges{display:flex; gap:1px; margin-top:10px; background:var(--line); border:1px solid var(--line);}
+  .jbtn{flex:1; padding:9px 4px; background:var(--surface); font-weight:600; font-size:13px; color:var(--sub); text-align:center;}
+  .jbtn.ok.on{background:var(--pass); color:#fff;}
+  .jbtn.ng.on{background:var(--ng); color:#fff;}
+  .jbtn.na.on{background:var(--na); color:#fff;}
 
-  .ng-panel{margin-top:11px; background:var(--ng-bg); border:1px solid #f3ccd2; border-radius:11px; padding:11px;}
-  .ng-panel textarea{width:100%; border:1px solid #eab9c0; border-radius:9px; padding:9px 10px; resize:vertical; min-height:54px; background:#fff;}
-  .fixrow{display:flex; gap:8px; margin-top:9px; align-items:center;}
-  .fixtog{display:flex; border:1px solid #eab9c0; border-radius:9px; overflow:hidden; background:#fff;}
-  .fixtog button{padding:9px 13px; font-size:12.5px; font-weight:800; color:var(--sub);}
+  .ng-panel{margin-top:10px; background:var(--ng-bg); border:1px solid #E8C3C9; padding:10px;}
+  .ng-panel textarea{width:100%; border:1px solid #DCAEB5; border-radius:2px; padding:8px 9px; resize:vertical; min-height:52px; background:#fff;}
+  .fixrow{display:flex; gap:8px; margin-top:8px; align-items:center;}
+  .fixtog{display:flex; border:1px solid #DCAEB5; overflow:hidden; background:#fff;}
+  .fixtog button{padding:8px 12px; font-size:12px; font-weight:600; color:var(--sub);}
   .fixtog button.on.no{background:var(--ng); color:#fff;}
   .fixtog button.on.yes{background:var(--pass); color:#fff;}
-  .due{flex:1; border:1px solid #eab9c0; border-radius:9px; padding:9px 10px; background:#fff; min-width:0;}
+  .due{flex:1; border:1px solid #DCAEB5; border-radius:2px; padding:8px 9px; background:#fff; min-width:0;}
 
-  .item-tools{display:flex; gap:14px; margin-top:10px;}
-  .item-tools button{font-size:12px; font-weight:700; color:var(--sub); display:flex; align-items:center; gap:4px;}
+  .item-tools{display:flex; gap:14px; margin-top:9px;}
+  .item-tools button{font-size:11.5px; font-weight:600; color:var(--sub); display:flex; align-items:center; gap:4px;}
   .item-tools button.del{color:var(--ng);}
-  .add-item{width:100%; padding:12px; text-align:center; font-weight:800; color:var(--accent); font-size:13.5px; border-top:1px dashed var(--line); background:var(--surface-2);}
+  .add-item{width:100%; padding:10px; text-align:center; font-weight:600; color:var(--accent); font-size:12.5px; border-top:1px dashed var(--line); background:var(--surface-2);}
 
-  .nav{position:fixed; left:0; right:0; bottom:0; z-index:40; background:rgba(255,255,255,.94); backdrop-filter:blur(10px); border-top:1px solid var(--line); display:flex; padding-bottom:env(safe-area-inset-bottom);}
+  .nav{position:fixed; left:0; right:0; bottom:0; z-index:40; background:var(--surface); border-top:1px solid var(--line); display:flex; padding-bottom:env(safe-area-inset-bottom);}
   .nav .navwrap{max-width:860px; margin:0 auto; width:100%; display:flex;}
-  .nav button{flex:1; padding:10px 0 12px; display:flex; flex-direction:column; align-items:center; gap:3px; color:var(--sub); font-size:11px; font-weight:700;}
-  .nav button.on{color:var(--accent);}
-  .nav svg{width:23px; height:23px;}
+  .nav button{flex:1; padding:9px 0 10px; display:flex; flex-direction:column; align-items:center; gap:3px; color:var(--sub); font-size:10.5px; font-weight:600; border-top:2px solid transparent; margin-top:-1px;}
+  .nav button.on{color:var(--accent); border-top-color:var(--accent);}
+  .nav svg{width:21px; height:21px;}
 
-  .fab{position:fixed; right:18px; bottom:calc(86px + env(safe-area-inset-bottom)); z-index:35; background:var(--accent); color:#fff; border-radius:16px; padding:14px 18px; font-weight:800; font-size:14px; box-shadow:0 8px 24px rgba(14,79,125,.35); display:flex; align-items:center; gap:7px;}
+  .fab{position:fixed; right:16px; bottom:calc(80px + env(safe-area-inset-bottom)); z-index:35; background:var(--accent); color:#fff; border-radius:3px; padding:12px 16px; font-weight:600; font-size:13.5px; box-shadow:0 4px 14px rgba(31,78,121,.35); display:flex; align-items:center; gap:7px;}
 
-  .ov{position:fixed; inset:0; z-index:60; background:rgba(20,26,32,.45); display:flex; align-items:flex-end; justify-content:center;}
-  .sheet{background:var(--surface); width:100%; max-width:860px; border-radius:18px 18px 0 0; padding:20px 18px calc(20px + env(safe-area-inset-bottom)); max-height:88vh; overflow:auto;}
-  .sheet h3{margin:0 0 4px; font-size:18px; font-weight:800;}
-  .sheet .sub{font-size:13px; color:var(--sub); margin-bottom:16px;}
-  .seg{display:flex; gap:8px; margin-bottom:14px;}
-  .seg button{flex:1; padding:13px 6px; border-radius:12px; border:1.5px solid var(--line); font-weight:800; font-size:13.5px; color:var(--sub); text-align:center; background:var(--surface-2);}
-  .seg button.on{border-color:var(--accent); background:#EAF1F8; color:var(--accent);}
-  .seg button small{display:block; font-weight:600; font-size:10.5px; margin-top:3px; color:var(--sub);}
-  .flabel{font-size:12px; font-weight:800; color:var(--sub); margin:12px 0 6px; letter-spacing:.03em;}
-  .finput{width:100%; border:1px solid var(--line); border-radius:11px; padding:12px; background:var(--surface-2);}
-  .sheet-actions{display:flex; gap:10px; margin-top:20px;}
+  .ov{position:fixed; inset:0; z-index:60; background:rgba(25,32,40,.45); display:flex; align-items:flex-end; justify-content:center;}
+  .sheet{background:var(--surface); width:100%; max-width:860px; border-top:2px solid var(--accent); padding:18px 16px calc(20px + env(safe-area-inset-bottom)); max-height:88vh; overflow:auto;}
+  .sheet h3{margin:0 0 4px; font-size:16px; font-weight:700;}
+  .sheet .sub{font-size:12.5px; color:var(--sub); margin-bottom:14px;}
+  .seg{display:grid; grid-template-columns:repeat(2,1fr); gap:1px; margin-bottom:14px; background:var(--line); border:1px solid var(--line);}
+  .seg button{padding:11px 6px; background:var(--surface); font-weight:600; font-size:13px; color:var(--sub); text-align:center;}
+  .seg button.on{background:var(--accent); color:#fff;}
+  .seg button.on small{color:#D7E2EC;}
+  .seg button small{display:block; font-weight:500; font-size:10px; margin-top:2px; color:var(--sub);}
+  .flabel{font-size:11.5px; font-weight:600; color:var(--sub); margin:12px 0 5px; letter-spacing:.04em;}
+  .finput{width:100%; border:1px solid var(--line); border-radius:2px; padding:11px; background:var(--surface);}
+  .sheet-actions{display:flex; gap:8px; margin-top:18px;}
 
-  .ovc{position:fixed; inset:0; z-index:70; background:rgba(20,26,32,.5); display:flex; align-items:center; justify-content:center; padding:24px;}
-  .dialog{background:#fff; width:100%; max-width:420px; border-radius:16px; padding:20px; box-shadow:var(--shadow);}
-  .dialog h3{margin:0 0 12px; font-size:17px; font-weight:800;}
-  .dialog p{margin:0 0 14px; font-size:14px; color:var(--sub);}
-  .dialog .acts{display:flex; gap:10px; margin-top:16px;}
+  .ovc{position:fixed; inset:0; z-index:70; background:rgba(25,32,40,.5); display:flex; align-items:center; justify-content:center; padding:24px;}
+  .dialog{background:#fff; width:100%; max-width:420px; border-radius:3px; border-top:2px solid var(--accent); padding:18px; box-shadow:var(--shadow);}
+  .dialog h3{margin:0 0 10px; font-size:15.5px; font-weight:700;}
+  .dialog p{margin:0 0 12px; font-size:13.5px; color:var(--sub);}
+  .dialog .acts{display:flex; gap:8px; margin-top:14px;}
 
-  .empty{text-align:center; padding:50px 24px; color:var(--sub);}
-  .empty .ic{font-size:34px; margin-bottom:10px;}
+  .empty{text-align:center; padding:34px 20px; color:var(--sub); font-size:13px; background:var(--surface); border:1px dashed var(--line); border-radius:3px; line-height:1.8;}
+  .empty .ic{display:none;}
 
-  /* 操作バー（取込・共有） */
-  .actbar{display:flex; gap:8px; margin:10px 16px 0; flex-wrap:wrap;}
-  .actbar .btn{flex:1; min-width:120px;}
-  .icon-btn{width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; color:var(--ink); flex:none;}
+  .icon-btn{width:38px; height:38px; border-radius:3px; display:flex; align-items:center; justify-content:center; color:var(--ink); flex:none;}
   .icon-btn:active{background:var(--surface-2);}
   .menu-ov{position:fixed; inset:0; z-index:45;}
-  .menu{position:fixed; top:calc(env(safe-area-inset-top) + 56px); right:12px; z-index:46; background:var(--surface); border:1px solid var(--line); border-radius:14px; box-shadow:0 10px 34px rgba(20,28,36,.20); padding:6px; min-width:212px;}
-  .menu button{display:flex; align-items:center; gap:11px; width:100%; padding:12px; border-radius:9px; font-weight:700; font-size:14px; color:var(--ink); text-align:left;}
+  .menu{position:fixed; top:calc(env(safe-area-inset-top) + 54px); right:12px; z-index:46; background:var(--surface); border:1px solid var(--line); border-radius:3px; box-shadow:var(--shadow); padding:4px; min-width:216px;}
+  .menu button{display:flex; align-items:center; gap:10px; width:100%; padding:11px 12px; font-weight:600; font-size:13.5px; color:var(--ink); text-align:left;}
   .menu button:active{background:var(--surface-2);}
   .menu svg{color:var(--sub); flex:none;}
 
   /* 図面（是正マップ） */
-  .dwg-list{display:flex; flex-direction:column; gap:10px;}
-  .dwg-card{display:flex; align-items:center; gap:12px; padding:13px 15px; cursor:pointer;}
-  .dwg-thumb{width:54px; height:54px; border-radius:8px; background:var(--surface-2); border:1px solid var(--line); object-fit:cover; flex:none;}
-  .dwg-card .nm{font-weight:800; font-size:15px;}
-  .dwg-card .sub{font-size:12px; color:var(--sub); margin-top:2px;}
-  .dwg-toolbar{display:flex; gap:8px; align-items:center; margin:0 16px 10px; flex-wrap:wrap;}
-  .addmode{font-size:13px; font-weight:800; color:var(--sub); display:flex; align-items:center; gap:8px;}
-  .toggle{width:46px; height:27px; border-radius:99px; background:var(--line); position:relative; transition:.15s; flex:none;}
+  .dwg-list{display:flex; flex-direction:column; gap:8px;}
+  .dwg-card{display:flex; align-items:center; gap:12px; padding:11px 12px; cursor:pointer;}
+  .dwg-thumb{width:52px; height:52px; border-radius:2px; background:var(--surface-2); border:1px solid var(--line); object-fit:cover; flex:none;}
+  .dwg-card .nm{font-weight:700; font-size:14px;}
+  .dwg-card .sub{font-size:11.5px; color:var(--sub); margin-top:2px;}
+  .dwg-toolbar{display:flex; gap:8px; align-items:center; margin:12px 16px 10px; flex-wrap:wrap;}
+  .addmode{font-size:12.5px; font-weight:600; color:var(--sub); display:flex; align-items:center; gap:8px;}
+  .toggle{width:44px; height:25px; border-radius:99px; background:var(--line); position:relative; transition:.15s; flex:none;}
   .toggle.on{background:var(--accent);}
-  .toggle i{position:absolute; top:3px; left:3px; width:21px; height:21px; border-radius:50%; background:#fff; transition:.15s;}
+  .toggle i{position:absolute; top:3px; left:3px; width:19px; height:19px; border-radius:50%; background:#fff; transition:.15s;}
   .toggle.on i{left:22px;}
-  .split{display:flex; flex-direction:column; gap:14px; margin:0 16px 16px;}
-  .canvas-wrap{position:relative; border:1px solid var(--line); border-radius:12px; overflow:hidden; background:#fff; box-shadow:var(--shadow);}
+  .split{display:flex; flex-direction:column; gap:12px; margin:0 16px 16px;}
+  .canvas-wrap{position:relative; border:1px solid var(--line); overflow:hidden; background:#fff;}
   .canvas-wrap img{width:100%; display:block;}
-  .canvas-wrap.adding{cursor:crosshair;}
-  .pin{position:absolute; transform:translate(-50%,-50%); width:26px; height:26px; border-radius:50%; background:var(--ng); color:#fff; font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center; border:2px solid #fff; box-shadow:0 0 0 1.5px var(--ng),0 2px 5px rgba(0,0,0,.3); cursor:grab; padding:0; touch-action:none;}
+  .canvas-wrap.adding{cursor:crosshair; outline:2px solid var(--accent); outline-offset:-2px;}
+  .pin{position:absolute; transform:translate(-50%,-50%); width:25px; height:25px; border-radius:50%; background:var(--ng); color:#fff; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; border:1.5px solid #fff; box-shadow:0 0 0 1px var(--ng); cursor:grab; padding:0; touch-action:none;}
   .pin:active{cursor:grabbing;}
-  .pin.done{background:var(--pass); box-shadow:0 0 0 1.5px var(--pass),0 2px 5px rgba(0,0,0,.3);}
-  .pin.sel{outline:3px solid var(--accent); outline-offset:1px; z-index:5;}
-  .pinrow{padding:12px 14px; border-top:1px solid var(--line-2);}
+  .pin.done{background:var(--pass); box-shadow:0 0 0 1px var(--pass);}
+  .pin.sel{outline:2px solid var(--accent); outline-offset:2px; z-index:5;}
+  .pinrow{padding:11px 12px; border-top:1px solid var(--line-2);}
   .pinrow:first-child{border-top:none;}
-  .pinrow.sel{background:#EAF1F8;}
+  .pinrow.sel{background:var(--sel); box-shadow:inset 2px 0 0 var(--accent);}
   .pinrow .ph{display:flex; align-items:center; gap:10px;}
-  .pinno{width:26px;height:26px;border-radius:50%;background:var(--ng);color:#fff;font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none;}
+  .pinno{width:25px;height:25px;border-radius:50%;background:var(--ng);color:#fff;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none;}
   .pinno.done{background:var(--pass);}
-  .pinrow input{width:100%; border:1px solid var(--line); border-radius:8px; padding:9px 10px; background:var(--surface-2); margin-top:7px;}
-  .dwg-empty{text-align:center; padding:30px 18px; color:var(--sub); font-size:13px;}
+  .pinrow input{width:100%; border:1px solid var(--line); border-radius:2px; padding:8px 9px; background:var(--surface); margin-top:7px;}
+  .dwg-empty{text-align:center; padding:26px 16px; color:var(--sub); font-size:12.5px; line-height:1.8;}
   .loading{text-align:center; padding:48px; color:var(--sub);}
+
+  /* 現場×検査マトリクス：セル方式 */
+  .mx{display:grid; grid-template-columns:repeat(4,1fr); gap:1px; margin-top:11px; background:var(--line); border:1px solid var(--line);}
+  .mx .cell{padding:6px 3px 6px; text-align:center; background:var(--surface);}
+  .mx .cell .tn{font-size:10px; font-weight:600; color:var(--sub); letter-spacing:.03em;}
+  .mx .cell .st{font-size:11.5px; font-weight:700; margin-top:1px; color:var(--sub);}
+  .mx .cell.none .st{color:var(--line);}
+  .mx .cell.prog{background:var(--sel);} .mx .cell.prog .st{color:var(--accent);}
+  .mx .cell.ng{background:var(--ng-bg);} .mx .cell.ng .st{color:var(--ng);}
+  .mx .cell.ok{background:var(--pass-bg);} .mx .cell.ok .st{color:var(--pass);}
+
+  /* ダッシュボード：シートタブ風の切替 */
+  .vt{display:flex; gap:4px; margin:14px 16px 0; border-bottom:1px solid var(--line); padding:0;}
+  .vt button{padding:9px 16px 8px; font-weight:600; font-size:13.5px; color:var(--sub); background:transparent; border:1px solid transparent; border-bottom:none; border-radius:3px 3px 0 0; margin-bottom:-1px; display:flex; align-items:center;}
+  .vt button.on{background:var(--surface); border-color:var(--line); border-bottom:1px solid var(--surface); color:var(--accent); font-weight:700; box-shadow:inset 0 2px 0 var(--accent);}
+  .vt button .cnt{margin-left:7px; font-size:11px; background:var(--ng); color:#fff; border-radius:2px; padding:1px 6px; font-weight:700;}
+
+  /* タスクビュー */
+  .task{padding:11px 12px; cursor:pointer;}
+  .task .hd{display:flex; align-items:center; gap:8px;}
+  .task .due{font-size:11px; font-weight:700; padding:3px 8px; border-radius:2px; background:var(--surface-2); border:1px solid var(--line-2); color:var(--sub); white-space:nowrap;}
+  .task .due.over{background:var(--ng-bg); border-color:var(--ng); color:var(--ng);}
+  .task .due.soon{background:var(--warn-bg); border-color:#DEC27C; color:var(--warn);}
+  .task .site{font-size:12px; color:var(--sub); font-weight:600; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .task .body{font-size:13.5px; font-weight:500; margin-top:7px; line-height:1.5;}
+  .task .meta{font-size:11.5px; color:var(--sub); margin-top:4px; display:flex; gap:10px; flex-wrap:wrap;}
+  .pinno-s{display:inline-flex; align-items:center; justify-content:center; min-width:21px; height:21px; padding:0 5px; border-radius:2px; background:var(--ng); color:#fff; font-weight:700; font-size:11px; flex:none;}
+
+  /* マニュアル */
+  .man-card{display:flex; align-items:center; gap:11px; padding:12px; cursor:pointer;}
+  .man-card>svg{color:var(--sub); flex:none;}
+  .man-card .nm{font-weight:600; font-size:14px; flex:1; word-break:break-all;}
+  .man-card .tag{font-size:10px; font-weight:700; padding:2px 7px; border-radius:2px; background:var(--surface-2); border:1px solid var(--line); color:var(--sub); white-space:nowrap;}
+  .man-viewer{margin:0 16px 16px;}
+  .man-viewer canvas{width:100%; height:auto; display:block; border:1px solid var(--line); margin-bottom:8px; background:#fff;}
+  .man-note{font-size:12px; color:var(--sub); line-height:1.7; margin:8px 16px;}
 
   /* ---- PC（広い画面）レイアウト ---- */
   .desktop-only{display:none !important;}
   @media (min-width:900px){
     .app{display:flex; flex-direction:column; max-width:1120px; padding-bottom:32px;}
     .topbar{order:1;}
-    .nav{order:3; position:static; bottom:auto; border-top:none; border-bottom:1px solid var(--line); padding-bottom:0; background:#fff;}
+    .nav{order:3; position:static; bottom:auto; border-top:none; border-bottom:1px solid var(--line); padding-bottom:0; background:var(--surface);}
     .nav .navwrap{justify-content:center; gap:6px;}
-    .nav button{flex:0 0 auto; flex-direction:row; gap:8px; padding:13px 22px; font-size:14px; border-bottom:2px solid transparent;}
+    .nav button{flex:0 0 auto; flex-direction:row; gap:8px; padding:12px 20px; font-size:13.5px; border-top:none; margin-top:0; border-bottom:2px solid transparent;}
     .nav button.on{border-bottom-color:var(--accent);}
-    .nav svg{width:18px; height:18px;}
+    .nav svg{width:17px; height:17px;}
+    .seg{grid-template-columns:repeat(4,1fr);}
     .content{order:4;}
     .print-area{order:5;}
     .desktop-only{display:inline-flex !important;}
     .mobile-only{display:none !important;}
-
-    /* 一覧はカードをグリッド表示 */
-    .insp-list{display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:14px; align-items:start;}
-    /* フォーム・チェックリストは読みやすい幅で中央寄せ */
+    .insp-list{display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:12px; align-items:start;}
     .summary{margin-top:20px;}
     .dhead,.exrow,.cat,.pad{max-width:780px; margin-left:auto; margin-right:auto;}
     .dhead{margin-top:20px;}
-    .split{display:grid; grid-template-columns:1.3fr 1fr; gap:16px; align-items:start;}
+    .split{display:grid; grid-template-columns:1.3fr 1fr; gap:14px; align-items:start;}
     .canvas-wrap{position:sticky; top:16px;}
-    .dwg-toolbar{margin-top:4px;}
+    .dwg-toolbar{margin-top:6px;}
   }
   @media (hover:hover) and (min-width:900px){
-    .prop,.insp{transition:border-color .12s, box-shadow .12s;}
-    .prop:hover,.insp:hover{border-color:var(--accent-2); box-shadow:0 2px 4px rgba(20,28,36,.08), 0 8px 22px rgba(20,28,36,.10);}
-    .btn-ghost:hover{background:var(--surface-2);}
+    .prop,.insp,.task,.man-card,.dwg-card{transition:border-color .12s, background .12s;}
+    .prop:hover,.insp:hover,.task:hover,.man-card:hover,.dwg-card:hover{border-color:var(--accent);}
+    .btn-ghost:hover,.btn:hover{background:var(--surface-2);}
+    .btn-primary:hover{background:var(--accent-2);}
   }
 
   .print-area{display:none;}
@@ -268,20 +308,20 @@
     .pd-wrap{display:flex; gap:14px; align-items:flex-start;}
     .pd-img{position:relative; width:56%; flex:none;}
     .pd-img img{width:100%; display:block; border:1px solid #999;}
-    .pd-pin{position:absolute; transform:translate(-50%,-50%); width:18px; height:18px; border-radius:50%; background:#C8102E; color:#fff; font-size:10px; font-weight:800; display:flex; align-items:center; justify-content:center; border:1.5px solid #fff; -webkit-print-color-adjust:exact; print-color-adjust:exact;}
-    .pd-pin.done{background:#137A4E;}
+    .pd-pin{position:absolute; transform:translate(-50%,-50%); width:18px; height:18px; border-radius:50%; background:#BE2333; color:#fff; font-size:10px; font-weight:800; display:flex; align-items:center; justify-content:center; border:1.5px solid #fff; -webkit-print-color-adjust:exact; print-color-adjust:exact;}
+    .pd-pin.done{background:#217346;}
     .pd-table{flex:1;}
     table.pr td.pr-no{text-align:center; font-weight:800; white-space:nowrap;}
-    table.pr tr.done td{background:#E4F2EA;}
-    table.pr tr.done td.pr-no{background:#137A4E; color:#fff;}
+    table.pr tr.done td{background:#E9F2EC;}
+    table.pr tr.done td.pr-no{background:#217346; color:#fff;}
   }
 </style>
 </head>
 <body>
 <div id="root"></div>
 <script type="text/babel" data-presets="react">
-/* リノベーション検査シート — 物件単位 / 中間・内装・設備
-   単一HTML（React 18 + Babel + XLSX, CDN）で動作。GitHub Pages配置可。 */
+/* リノベーション検査シート — 物件単位 / 中間・内装・設備・竣工＋是正マップ（検査単位）・タスクビュー・マニュアル・JSONバックアップ
+   単一HTML（React 18 + Babel + XLSX + pdf.js, CDN）で動作。GitHub Pages配置可。 */
 const {useState,useEffect,useMemo,useRef,createContext,useContext} = React;
 
 /* ---------- storage（localStorageが使えれば永続化、ダメならメモリ） ---------- */
@@ -312,8 +352,9 @@ const TYPES={
   chukan:{key:"chukan", name:"中間検査", short:"中間", badge:"b-chukan"},
   naiso:{key:"naiso", name:"内装仕上げ検査", short:"内装", badge:"b-naiso"},
   setsubi:{key:"setsubi", name:"設備検査", short:"設備", badge:"b-setsubi"},
+  shunko:{key:"shunko", name:"竣工検査", short:"竣工", badge:"b-shunko"},
 };
-const TYPE_ORDER=["chukan","naiso","setsubi"];
+const TYPE_ORDER=["chukan","naiso","setsubi","shunko"];
 
 const DEFAULT_TEMPLATES={
   chukan:[
@@ -378,6 +419,13 @@ const DEFAULT_TEMPLATES={
     {id:uid(),name:"給湯・ガス",items:["給湯器の着火・設定温度","ガス漏れ確認","リモコンの動作"].map(t=>({id:uid(),label:t}))},
     {id:uid(),name:"衛生機器",items:["トイレの洗浄・止水","洗面・浴室の動作","IH・食洗機の動作確認"].map(t=>({id:uid(),label:t}))},
   ],
+  shunko:[
+    {id:uid(),name:"内装仕上げ",items:["クロス・塗装の汚れ、キズ、浮き","床材のキズ・汚れ・床鳴り","巾木・廻り縁・見切りの納まり"].map(t=>({id:uid(),label:t}))},
+    {id:uid(),name:"建具",items:["ドア・引戸の開閉、建付け、鍵の動作","サッシ・網戸の開閉と施錠","収納扉・金物の動作"].map(t=>({id:uid(),label:t}))},
+    {id:uid(),name:"設備動作",items:["給水・給湯・排水の最終確認（漏水なし）","電気設備の通電・照明・スイッチ動作","給湯器・エアコン・換気設備の運転確認"].map(t=>({id:uid(),label:t}))},
+    {id:uid(),name:"是正確認",items:["中間・内装・設備検査の指摘が全て是正済である","是正マップの番号が全て完了している"].map(t=>({id:uid(),label:t}))},
+    {id:uid(),name:"清掃・引渡し",items:["美装（ハウスクリーニング）の仕上がり","残材・養生の撤去","鍵・保証書・取扱説明書の準備"].map(t=>({id:uid(),label:t}))},
+  ],
 };
 
 /* ---------- 集計 ---------- */
@@ -395,9 +443,49 @@ function propMetrics(prop){
 }
 function latestInspDate(prop){ const ds=prop.inspections.map(i=>i.date).filter(Boolean).sort(); return ds.length?ds[ds.length-1]:""; }
 function nearestDue(prop){ const ds=[];
-  prop.inspections.forEach(i=>i.results.forEach(r=>{ if(r.judge==="ng"&&!r.fixed&&r.due) ds.push(r.due); }));
-  (prop.drawings||[]).forEach(d=>d.pins.forEach(p=>{ if(!p.done&&p.due) ds.push(p.due); }));
+  prop.inspections.forEach(i=>{ i.results.forEach(r=>{ if(r.judge==="ng"&&!r.fixed&&r.due) ds.push(r.due); });
+    (i.drawings||[]).forEach(d=>(d.pins||[]).forEach(p=>{ if(!p.done&&p.due) ds.push(p.due); })); });
+  (prop.drawings||[]).forEach(d=>(d.pins||[]).forEach(p=>{ if(!p.done&&p.due) ds.push(p.due); }));
   ds.sort(); return ds.length?ds[0]:null; }
+function propPinStats(prop){ let pins=0,done=0;
+  const eat=d=>(d.pins||[]).forEach(p=>{pins++; if(p.done)done++;});
+  prop.inspections.forEach(i=>(i.drawings||[]).forEach(eat));
+  (prop.drawings||[]).forEach(eat);
+  return {pins,done,zan:pins-done}; }
+function typeStatus(prop,t){
+  const list=prop.inspections.filter(i=>i.type===t);
+  if(!list.length) return "none";
+  let zan=0,total=0,checked=0,pinZan=0;
+  list.forEach(i=>{const m=metrics(i); zan+=m.zan; total+=m.total; checked+=m.checked;
+    (i.drawings||[]).forEach(d=>(d.pins||[]).forEach(p=>{if(!p.done)pinZan++;}));});
+  if(zan>0||pinZan>0) return "ng";
+  if(total>0&&checked===total) return "ok";
+  return "prog"; }
+function collectTasks(properties){
+  const out=[];
+  properties.forEach(p=>{
+    p.inspections.forEach(i=>{
+      i.results.forEach(r=>{ if(r.judge==="ng"&&!r.fixed) out.push({kind:"insp",propId:p.id,propName:p.name,inspId:i.id,type:i.type,category:r.category,label:r.label,issue:r.issue||"",due:r.due||""}); });
+      (i.drawings||[]).forEach(d=>(d.pins||[]).forEach(pin=>{ if(!pin.done) out.push({kind:"pin",propId:p.id,propName:p.name,inspId:i.id,type:i.type,drawingId:d.id,drawingName:d.name,no:pin.no,room:pin.room||"",issue:pin.issue||"",assignee:pin.assignee||"",due:pin.due||""}); }));
+    });
+    (p.drawings||[]).forEach(d=>(d.pins||[]).forEach(pin=>{ if(!pin.done) out.push({kind:"pin",propId:p.id,propName:p.name,inspId:null,type:null,drawingId:d.id,drawingName:d.name,no:pin.no,room:pin.room||"",issue:pin.issue||"",assignee:pin.assignee||"",due:pin.due||""}); }));
+  });
+  out.sort((a,b)=>{ if(a.due===b.due) return 0; if(!a.due) return 1; if(!b.due) return -1; return a.due<b.due?-1:1; });
+  return out; }
+function dueFlag(due){ if(!due) return "";
+  const t=todayISO(); if(due<t) return "over";
+  const lim=new Date(); lim.setDate(lim.getDate()+7);
+  return due<=lim.toISOString().slice(0,10)?"soon":""; }
+/* 旧データ移行：物件単位の図面 → 最新の検査へ（検査が無い場合は物件に残す） */
+function migrateProps(list){
+  return (list||[]).map(p=>{
+    const np={...p, inspections:(p.inspections||[]).map(i=>({...i, drawings:i.drawings||[]}))};
+    const legacy=p.drawings||[];
+    if(legacy.length&&np.inspections.length){
+      np.inspections=[{...np.inspections[0],drawings:[...np.inspections[0].drawings,...legacy]},...np.inspections.slice(1)];
+      np.drawings=[];
+    } else np.drawings=legacy;
+    return np; }); }
 
 /* ---------- アイコン ---------- */
 const Ico={
@@ -414,6 +502,7 @@ const Ico={
   trash:p=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" {...p}><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>,
   imp:p=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16" {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/></svg>,
   exp:p=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16" {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M12 15V3"/><path d="M7 8l5-5 5 5"/></svg>,
+  book:p=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>,
 };
 
 /* ================= ダイアログ（prompt/confirm の代替・サンドボックスでも動く） ================= */
@@ -453,12 +542,13 @@ function DialogView({st,finish}){
 /* ================= APP ================= */
 function App(){
   const dlg=useDialog();
-  const [templates,setTemplates]=useState(()=>store.get(KEY+":t")||DEFAULT_TEMPLATES);
-  const [properties,setProperties]=useState(()=>store.get(KEY+":p")||seedProperties());
+  const [templates,setTemplates]=useState(()=>{ const t=store.get(KEY+":t"); return t?{...DEFAULT_TEMPLATES,...t}:DEFAULT_TEMPLATES; });
+  const [properties,setProperties]=useState(()=>{ const s=store.get(KEY+":p"); return s?migrateProps(s):seedProperties(); });
   const [view,setView]=useState({name:"dash"});
   const [printT,setPrintT]=useState(null); // {prop, insps:[...]}
   const [menu,setMenu]=useState(false);
   const fileRef=useRef(null);
+  const jsonRef=useRef(null);
 
   useEffect(()=>store.set(KEY+":t",templates),[templates]);
   useEffect(()=>store.set(KEY+":p",properties),[properties]);
@@ -475,16 +565,32 @@ function App(){
       await dlg.alert({title:"取込完了",message:`${imported.length}件の物件を取り込みました。同名の物件は検査をマージしています。`});
     }catch(err){ await dlg.alert({title:"エラー",message:"ファイルを読み込めませんでした。Excel(.xlsx)を選んでください。"}); }
   };
+  const doBackup=()=>{ setMenu(false); exportBackup(templates,properties); };
+  const doRestore=()=>{ setMenu(false); jsonRef.current&&jsonRef.current.click(); };
+  const onJson=async(e)=>{
+    const f=e.target.files&&e.target.files[0]; e.target.value=""; if(!f) return;
+    try{
+      const data=JSON.parse(await f.text());
+      if(data.app!=="reno-inspect"||!Array.isArray(data.properties)) throw new Error("format");
+      if(!(await dlg.confirm({title:"バックアップを復元",message:`現在のデータをバックアップ（${data.properties.length}物件）の内容で置き換えます。よろしいですか？`,ok:"復元する"}))) return;
+      const imgs=data.images||{};
+      for(const k of Object.keys(imgs)) await idbSet(k,imgs[k]);
+      if(data.templates) setTemplates({...DEFAULT_TEMPLATES,...data.templates});
+      setProperties(migrateProps(data.properties));
+      setView({name:"dash"});
+      await dlg.alert({title:"復元完了",message:`${data.properties.length}件の物件を復元しました。`});
+    }catch(err){ await dlg.alert({title:"エラー",message:"バックアップファイル(JSON)を読み込めませんでした。"}); }
+  };
 
   const prop=properties.find(p=>p.id===view.propId)||null;
   const insp=prop&&view.inspId?prop.inspections.find(i=>i.id===view.inspId):null;
-  const drawing=prop&&view.drawingId?(prop.drawings||[]).find(d=>d.id===view.drawingId):null;
+  const drawing=prop&&view.drawingId?(((view.inspId&&insp)?(insp.drawings||[]):(prop.drawings||[])).find(d=>d.id===view.drawingId)):null;
 
   const updateProp=(id,fn)=>setProperties(list=>list.map(p=>p.id===id?fn(p):p));
   const updateInsp=(pid,iid,fn)=>updateProp(pid,p=>({...p,inspections:p.inspections.map(i=>i.id===iid?fn(i):i)}));
 
   const doPrint=(prop,insps)=>{ setPrintT({kind:"inspection",prop,insps}); setTimeout(()=>window.print(),80); };
-  const doPrintDrawing=(prop,drawing,imgUrl)=>{ setPrintT({kind:"drawing",prop,drawing,imgUrl}); setTimeout(()=>window.print(),140); };
+  const doPrintDrawing=(prop,insp,drawing,imgUrl)=>{ setPrintT({kind:"drawing",prop,insp,drawing,imgUrl}); setTimeout(()=>window.print(),140); };
 
   let title="";
   if(view.name==="property"&&prop) title=prop.name;
@@ -496,44 +602,54 @@ function App(){
       {view.name==="dash" && <><div className="brand"><b>リノベーション検査シート</b></div><div style={{flex:1}}/><button className="icon-btn" onClick={()=>setMenu(true)} aria-label="メニュー"><Ico.menu/></button></>}
       {view.name==="property" && <><button className="back-btn" onClick={()=>setView({name:"dash"})}><Ico.back/>物件一覧</button><div className="ttl">{title}</div></>}
       {view.name==="detail" && <><button className="back-btn" onClick={()=>setView({name:"property",propId:view.propId})}><Ico.back/>{prop?prop.name:"戻る"}</button><div className="ttl">{title}</div></>}
-      {view.name==="drawing" && <><button className="back-btn" onClick={()=>setView({name:"property",propId:view.propId})}><Ico.back/>{prop?prop.name:"戻る"}</button><div className="ttl">{title}</div></>}
+      {view.name==="drawing" && <><button className="back-btn" onClick={()=>setView(view.inspId?{name:"detail",propId:view.propId,inspId:view.inspId}:{name:"property",propId:view.propId})}><Ico.back/>{view.inspId&&insp?TYPES[insp.type].short:(prop?prop.name:"戻る")}</button><div className="ttl">{title}</div></>}
+      {view.name==="manuals" && <div className="brand"><b>マニュアル</b></div>}
       {view.name==="templates" && <div className="brand"><b>項目テンプレート</b></div>}
     </div></div>
 
     <div className="screen content">
       {view.name==="dash" && <Dashboard properties={properties}
         open={p=>setView({name:"property",propId:p.id})}
+        openTask={t=>{ if(t.kind==="insp") setView({name:"detail",propId:t.propId,inspId:t.inspId});
+          else setView({name:"drawing",propId:t.propId,inspId:t.inspId||undefined,drawingId:t.drawingId}); }}
         onAdd={p=>{setProperties(l=>[p,...l]); setView({name:"property",propId:p.id});}} />}
 
       {view.name==="property" && prop && <PropertyDetail prop={prop}
         update={fn=>updateProp(prop.id,fn)} templates={templates}
         openInsp={i=>setView({name:"detail",propId:prop.id,inspId:i.id})}
-        openDrawing={d=>setView({name:"drawing",propId:prop.id,drawingId:d.id})}
+        openDrawing={(iid,d)=>setView({name:"drawing",propId:prop.id,inspId:iid||undefined,drawingId:d.id})}
         onDelete={()=>{ setProperties(l=>l.filter(p=>p.id!==prop.id)); setView({name:"dash"}); }}
         onExcel={()=>exportPropertyExcel(prop)}
         onPdf={()=>doPrint(prop,prop.inspections)} />}
 
       {view.name==="detail" && prop && insp && <InspectionDetail prop={prop} insp={insp}
         update={fn=>updateInsp(prop.id,insp.id,fn)}
+        openDrawing={d=>setView({name:"drawing",propId:prop.id,inspId:insp.id,drawingId:d.id})}
         onDelete={()=>{ updateProp(prop.id,p=>({...p,inspections:p.inspections.filter(i=>i.id!==insp.id)})); setView({name:"property",propId:prop.id}); }}
         onExcel={()=>exportInspectionExcel(prop,insp)}
         onPdf={()=>doPrint(prop,[insp])} />}
 
-      {view.name==="drawing" && prop && drawing && <DrawingView prop={prop} drawing={drawing}
-        update={fn=>updateProp(prop.id,p=>({...p,drawings:(p.drawings||[]).map(d=>d.id===drawing.id?fn(d):d)}))}
-        onDelete={()=>{ if(drawing.imgKey) idbDel(drawing.imgKey); updateProp(prop.id,p=>({...p,drawings:(p.drawings||[]).filter(d=>d.id!==drawing.id)})); setView({name:"property",propId:prop.id}); }}
-        onPdf={imgUrl=>doPrintDrawing(prop,drawing,imgUrl)} />}
+      {view.name==="drawing" && prop && drawing && <DrawingView prop={prop} insp={view.inspId?insp:null} drawing={drawing}
+        update={fn=>{ if(view.inspId) updateInsp(prop.id,view.inspId,i=>({...i,drawings:(i.drawings||[]).map(d=>d.id===drawing.id?fn(d):d)}));
+          else updateProp(prop.id,p=>({...p,drawings:(p.drawings||[]).map(d=>d.id===drawing.id?fn(d):d)})); }}
+        onDelete={()=>{ if(drawing.imgKey) idbDel(drawing.imgKey);
+          if(view.inspId){ updateInsp(prop.id,view.inspId,i=>({...i,drawings:(i.drawings||[]).filter(d=>d.id!==drawing.id)})); setView({name:"detail",propId:prop.id,inspId:view.inspId}); }
+          else { updateProp(prop.id,p=>({...p,drawings:(p.drawings||[]).filter(d=>d.id!==drawing.id)})); setView({name:"property",propId:prop.id}); } }}
+        onPdf={imgUrl=>doPrintDrawing(prop,view.inspId?insp:null,drawing,imgUrl)} />}
+
+      {view.name==="manuals" && <Manuals />}
 
       {view.name==="templates" && <Templates templates={templates} setTemplates={setTemplates} />}
     </div>
 
     <nav className="nav screen"><div className="navwrap">
-      <button className={view.name!=="templates"?"on":""} onClick={()=>setView({name:"dash"})}><Ico.dash/>物件</button>
-      <button className={view.name==="templates"?"on":""} onClick={()=>setView({name:"templates"})}><Ico.tmpl/>項目テンプレート</button>
+      <button className={(view.name!=="templates"&&view.name!=="manuals")?"on":""} onClick={()=>setView({name:"dash"})}><Ico.dash/>物件</button>
+      <button className={view.name==="manuals"?"on":""} onClick={()=>setView({name:"manuals"})}><Ico.book/>マニュアル</button>
+      <button className={view.name==="templates"?"on":""} onClick={()=>setView({name:"templates"})}><Ico.tmpl/>テンプレート</button>
     </div></nav>
 
     {printT && (printT.kind==="drawing"
-      ? <PrintDrawing prop={printT.prop} drawing={printT.drawing} imgUrl={printT.imgUrl} />
+      ? <PrintDrawing prop={printT.prop} insp={printT.insp} drawing={printT.drawing} imgUrl={printT.imgUrl} />
       : <PrintReport prop={printT.prop} insps={printT.insps} />)}
 
     {menu && <><div className="menu-ov screen" onClick={()=>setMenu(false)}/>
@@ -541,22 +657,25 @@ function App(){
         <button onClick={doImport}><Ico.imp/>Excelを取込</button>
         <button onClick={doShare}><Ico.exp/>共有Excelを出力</button>
         <button onClick={doSummary}><Ico.xls/>一覧サマリを出力</button>
+        <div style={{borderTop:"1px solid var(--line-2)",margin:"6px 0"}}></div>
+        <button onClick={doBackup}><Ico.exp/>バックアップ保存（JSON）</button>
+        <button onClick={doRestore}><Ico.imp/>バックアップ復元</button>
       </div></>}
     <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={onFile}/>
+    <input ref={jsonRef} type="file" accept="application/json,.json" style={{display:"none"}} onChange={onJson}/>
   </div>;
 }
 
 /* ================= ダッシュボード（物件一覧） ================= */
-function Dashboard({properties,open,onAdd}){
+function Dashboard({properties,open,openTask,onAdd}){
   const [q,setQ]=useState("");
   const [onlyZan,setOnlyZan]=useState(false);
   const [showNew,setShowNew]=useState(false);
+  const [mode,setMode]=useState("sites");
 
-  const tot=useMemo(()=>{
-    let insp=0,ng=0,zan=0;
-    properties.forEach(p=>{const m=propMetrics(p); insp+=m.count; ng+=m.ng; zan+=m.zan;});
-    return {props:properties.length,insp,ng,zan};
-  },[properties]);
+  const tasks=useMemo(()=>collectTasks(properties),[properties]);
+  const over=useMemo(()=>tasks.filter(t=>dueFlag(t.due)==="over").length,[tasks]);
+  const soon=useMemo(()=>tasks.filter(t=>dueFlag(t.due)==="soon").length,[tasks]);
 
   const [sortBy,setSortBy]=useState("reg");
   const filtered=properties.filter(p=>{
@@ -573,37 +692,46 @@ function Dashboard({properties,open,onAdd}){
     if(!(label in idx)){idx[label]=g.length; g.push({label,items:[]});} g[idx[label]].items.push(p); }); return g; };
 
   const renderCard=(p)=>{
-    const m=propMetrics(p); const done=m.count>0&&m.zan===0;
+    const m=propMetrics(p); const pz=propPinStats(p);
+    const done=m.count>0&&m.zan===0&&pz.zan===0;
     return <div key={p.id} className={"prop card"+(done?" done":"")} onClick={()=>open(p)}>
       <div className="row" style={{justifyContent:"space-between",alignItems:"flex-start"}}>
         <div className="site">{p.name}</div>
         <div className="row" style={{alignItems:"center",gap:8}}>{done&&<span className="done-chip">完了</span>}<Ico.chev/></div>
       </div>
-      {(p.client||p.address)&&<div className="meta">{p.client&&<span>👤 {p.client}</span>}{p.address&&<span>📍 {p.address}</span>}</div>}
-      <div className="type-chips">
-        {TYPE_ORDER.map(t=>{ const n=p.inspections.filter(i=>i.type===t).length;
-          return <span key={t} className={"tchip "+t+(n?" has":"")}><span className="dot"></span>{TYPES[t].short}{n?` ${n}`:""}</span>;})}
+      {(p.client||p.address)&&<div className="meta">{p.client&&<span>顧客：{p.client}</span>}{p.address&&<span>所在：{p.address}</span>}</div>}
+      <div className="mx">
+        {TYPE_ORDER.map(t=>{ const st=typeStatus(p,t); const lab={none:"—",prog:"進行中",ng:"指摘",ok:"完了"}[st];
+          return <div key={t} className={"cell "+st}><div className="tn">{TYPES[t].short}</div><div className="st">{lab}</div></div>;})}
       </div>
       <div className="stats">
         <div className="stat"><div className="v mono">{m.count}</div><div className="k">検査</div></div>
-        <div className="stat"><div className="v ng mono">{m.ng}</div><div className="k">指摘</div></div>
-        <div className="stat"><div className="v zan mono">{m.zan}</div><div className="k">是正残</div></div>
-        <div className="stat"><div className="v done mono">{m.fixed}</div><div className="k">是正済</div></div>
+        <div className="stat"><div className="v ng mono">{m.ng+pz.pins}</div><div className="k">指摘</div></div>
+        <div className="stat"><div className="v zan mono">{m.zan+pz.zan}</div><div className="k">是正残</div></div>
+        <div className="stat"><div className="v done mono">{m.fixed+pz.done}</div><div className="k">是正済</div></div>
       </div>
     </div>;
   };
 
   return <>
     <div className="summary"><div className="top">
-      <div className="blk"><div className="lab">物件</div><div className="num mono">{tot.props}</div></div>
+      <div className="blk"><div className="lab">物件</div><div className="num mono">{properties.length}</div></div>
       <div className="div"></div>
-      <div className="blk"><div className="lab">検査</div><div className="num mono">{tot.insp}</div></div>
+      <div className="blk"><div className="lab">是正残 計</div><div className="num warn mono">{tasks.length}</div></div>
       <div className="div"></div>
-      <div className="blk"><div className="lab">指摘 計</div><div className="num ng mono">{tot.ng}</div></div>
+      <div className="blk"><div className="lab">期限超過</div><div className={"num mono"+(over>0?" ng":"")}>{over}</div></div>
       <div className="div"></div>
-      <div className="blk"><div className="lab">是正残 計</div><div className="num warn mono">{tot.zan}</div></div>
+      <div className="blk"><div className="lab">7日以内</div><div className="num mono" style={soon>0?{color:"#9A7008"}:null}>{soon}</div></div>
     </div></div>
 
+    <div className="vt">
+      <button className={mode==="sites"?"on":""} onClick={()=>setMode("sites")}>現場一覧</button>
+      <button className={mode==="tasks"?"on":""} onClick={()=>setMode("tasks")}>タスク{tasks.length>0&&<span className="cnt mono">{tasks.length}</span>}</button>
+    </div>
+
+    {mode==="tasks" && <TaskList tasks={tasks} openTask={openTask} />}
+
+    {mode==="sites" && <>
     <div className="sec-head"><h2>物件一覧</h2>
       <button className="btn btn-primary btn-sm desktop-only" onClick={()=>setShowNew(true)}><Ico.plus/>物件を追加</button></div>
 
@@ -628,6 +756,7 @@ function Dashboard({properties,open,onAdd}){
         : <div className="insp-list">{sorted.map(renderCard)}</div>}
 
     <button className="fab screen mobile-only" onClick={()=>setShowNew(true)}><Ico.plus/>物件を追加</button>
+    </>}
     {showNew && <NewProperty onClose={()=>setShowNew(false)} onCreate={p=>{onAdd(p); setShowNew(false);}} />}
   </>;
 }
@@ -654,7 +783,6 @@ function PropertyDetail({prop,update,templates,openInsp,openDrawing,onDelete,onE
   const dlg=useDialog();
   const m=propMetrics(prop);
   const [showNew,setShowNew]=useState(false);
-  const [showDwg,setShowDwg]=useState(false);
   const setHead=patch=>update(p=>({...p,...patch}));
 
   const remove=async()=>{ if(await dlg.confirm({title:"物件を削除",message:`「${prop.name}」と、含まれる検査をすべて削除します。`})) onDelete(); };
@@ -688,7 +816,7 @@ function PropertyDetail({prop,update,templates,openInsp,openDrawing,onDelete,onE
       <button className="btn btn-primary btn-sm" onClick={()=>setShowNew(true)}><Ico.plus/>検査を追加</button></div>
 
     <div className="insp-list" style={{paddingTop:0}}>
-      {prop.inspections.length===0 && <div className="empty"><div className="ic">📋</div>「検査を追加」から中間・内装・設備の検査を作成します。</div>}
+      {prop.inspections.length===0 && <div className="empty"><div className="ic">📋</div>「検査を追加」から中間・内装・設備・竣工の検査を作成します。</div>}
       {prop.inspections.map(i=>{ const im=metrics(i); const T=TYPES[i.type];
         return <div key={i.id} className="insp card" onClick={()=>openInsp(i)}>
           <div className="hd">
@@ -697,21 +825,21 @@ function PropertyDetail({prop,update,templates,openInsp,openDrawing,onDelete,onE
               <span className="mono" style={{fontSize:12.5,fontWeight:700}}>{im.ng>0?`指摘${im.ng} / 是正残${im.zan}`:"指摘なし"}</span><Ico.chev/>
             </div>
           </div>
-          <div className="meta"><span>📅 {fmtDate(i.date)}</span>{i.inspector&&<span>👷 {i.inspector}</span>}</div>
+          <div className="meta"><span>検査日：{fmtDate(i.date)}</span>{i.inspector&&<span>検査者：{i.inspector}</span>}{(i.drawings||[]).length>0&&<span>図面{(i.drawings||[]).length}・ピン残{(i.drawings||[]).reduce((s,d)=>s+(d.pins||[]).filter(p=>!p.done).length,0)}</span>}</div>
           <div className="pbar"><i style={{width:im.prog+"%"}}></i></div>
           <div className="pmeta"><span>検査進捗 {im.checked}/{im.total}</span><span>{im.prog}%</span></div>
         </div>;})}
     </div>
 
-    <div className="sec-head"><h2>図面（是正マップ）</h2>
-      <button className="btn btn-primary btn-sm" onClick={()=>setShowDwg(true)}><Ico.plus/>図面を追加</button></div>
-    <div className="insp-list dwg-list" style={{paddingTop:0}}>
-      {(prop.drawings||[]).length===0 && <div className="empty"><div className="ic">📐</div>PDF図面を取り込み、是正箇所に番号を付けて管理できます。</div>}
-      {(prop.drawings||[]).map(d=><DrawingCard key={d.id} d={d} onOpen={()=>openDrawing(d)} />)}
-    </div>
+    {(prop.drawings||[]).length>0 && <>
+      <div className="sec-head"><h2>図面（未分類）</h2></div>
+      <p className="man-note" style={{marginTop:0}}>以前のバージョンで物件に追加した図面です。今後の図面は各検査の中で追加します。</p>
+      <div className="insp-list dwg-list" style={{paddingTop:0}}>
+        {(prop.drawings||[]).map(d=><DrawingCard key={d.id} d={d} onOpen={()=>openDrawing(null,d)} />)}
+      </div>
+    </>}
 
     {showNew && <NewInspection templates={templates} onClose={()=>setShowNew(false)} onCreate={addInsp} />}
-    {showDwg && <ImportDrawing onClose={()=>setShowDwg(false)} onCreate={d=>{ update(p=>({...p,drawings:[...(p.drawings||[]),d]})); setShowDwg(false); openDrawing(d); }} />}
   </>;
 }
 
@@ -722,7 +850,7 @@ function NewInspection({templates,onClose,onCreate}){
   const create=()=>{
     const results=[];
     templates[type].forEach(cat=>cat.items.forEach(it=>results.push({id:uid(),category:cat.name,label:it.label,judge:"none",issue:"",fixed:false,due:""})));
-    onCreate({id:uid(),type,date,inspector:inspector.trim(),results,created:Date.now()});
+    onCreate({id:uid(),type,date,inspector:inspector.trim(),results,drawings:[],created:Date.now()});
   };
   return <Sheet title="検査を追加" sub="種別を選ぶと、テンプレートの項目が自動で読み込まれます。" onClose={onClose}>
     <div className="flabel">検査種別</div>
@@ -739,8 +867,9 @@ function NewInspection({templates,onClose,onCreate}){
 }
 
 /* ================= 検査詳細（チェックリスト） ================= */
-function InspectionDetail({prop,insp,update,onDelete,onExcel,onPdf}){
+function InspectionDetail({prop,insp,update,openDrawing,onDelete,onExcel,onPdf}){
   const dlg=useDialog();
+  const [showDwg,setShowDwg]=useState(false);
   const m=metrics(insp); const T=TYPES[insp.type];
   const cats=[]; insp.results.forEach(r=>{let c=cats.find(x=>x.name===r.category); if(!c){c={name:r.category,items:[]};cats.push(c);} c.items.push(r);});
 
@@ -777,6 +906,13 @@ function InspectionDetail({prop,insp,update,onDelete,onExcel,onPdf}){
       <button className="btn btn-ghost btn-block" onClick={onPdf}><Ico.pdf/>PDF出力</button>
     </div>
 
+    <div className="sec-head"><h2>図面（是正マップ）</h2>
+      <button className="btn btn-primary btn-sm" onClick={()=>setShowDwg(true)}><Ico.plus/>図面を追加</button></div>
+    <div className="insp-list dwg-list" style={{paddingTop:0,paddingBottom:4}}>
+      {(insp.drawings||[]).length===0 && <div className="empty" style={{padding:"20px 16px"}}><div className="ic">📐</div>PDF図面を取り込み、この検査の是正箇所に番号を付けて管理できます。</div>}
+      {(insp.drawings||[]).map(d=><DrawingCard key={d.id} d={d} onOpen={()=>openDrawing(d)} />)}
+    </div>
+
     {cats.map((cat,ci)=>{ const ng=cat.items.filter(r=>r.judge==="ng").length;
       return <div className="cat" key={ci}>
         <div className="cat-head"><span className="nm">{cat.name}</span>
@@ -788,6 +924,8 @@ function InspectionDetail({prop,insp,update,onDelete,onExcel,onPdf}){
       </div>;})}
 
     <div className="pad"><button className="btn btn-ghost btn-block" onClick={addCat}><Ico.plus/>カテゴリを追加</button></div>
+
+    {showDwg && <ImportDrawing onClose={()=>setShowDwg(false)} onCreate={d=>{ update(i=>({...i,drawings:[...(i.drawings||[]),d]})); setShowDwg(false); openDrawing(d); }} />}
   </>;
 }
 
@@ -1008,7 +1146,7 @@ function DrawingCard({d,onOpen}){
   </div>;
 }
 
-function DrawingView({prop,drawing,update,onDelete,onPdf}){
+function DrawingView({prop,insp,drawing,update,onDelete,onPdf}){
   const dlg=useDialog();
   const [imgUrl,setImgUrl]=useState(null);
   const [adding,setAdding]=useState(false);
@@ -1051,7 +1189,7 @@ function DrawingView({prop,drawing,update,onDelete,onPdf}){
   return <>
     <div className="dhead card">
       <div className="row" style={{justifyContent:"space-between",alignItems:"center"}}>
-        <div><div className="site">{drawing.name}</div><div className="muted" style={{fontSize:12.5,marginTop:2}}>{prop.name}</div></div>
+        <div><div className="site">{drawing.name}</div><div className="muted" style={{fontSize:12.5,marginTop:2}}>{prop.name}{insp?` ／ ${TYPES[insp.type].name}（${fmtDate(insp.date)}）`:""}</div></div>
         <div className="row">
           <button onClick={rename} style={{color:"var(--sub)",display:"flex",alignItems:"center",gap:4,fontSize:13,fontWeight:700}}><Ico.edit/>名称</button>
           <button onClick={onDelete} style={{color:"var(--ng)",display:"flex",alignItems:"center",gap:4,fontSize:13,fontWeight:700}}><Ico.trash/>削除</button>
@@ -1092,12 +1230,13 @@ function DrawingView({prop,drawing,update,onDelete,onPdf}){
   </>;
 }
 
-function PrintDrawing({prop,drawing,imgUrl}){
+function PrintDrawing({prop,insp,drawing,imgUrl}){
   const pins=drawing.pins.slice().sort((a,b)=>a.no-b.no);
   return <div className="print-area">
     <div className="pr-h"><div className="t">{drawing.name}　是正マップ</div><div style={{textAlign:"right",fontSize:12}}>リノベーション検査シート</div></div>
     <div className="pr-meta">
       <div><b>物件名</b>{prop.name}</div><div><b>顧客</b>{prop.client||"—"}</div>
+      <div><b>検査</b>{insp?`${TYPES[insp.type].name}（${fmtDate(insp.date)}）`:"—"}</div><div><b>検査者</b>{insp&&insp.inspector?insp.inspector:"—"}</div>
       <div><b>是正件数</b>{pins.length}（残 {pins.filter(p=>!p.done).length}）</div><div><b>図面名</b>{drawing.name}</div>
     </div>
     <div className="pd-wrap">
@@ -1178,6 +1317,175 @@ function mergeImported(cur,imported){
       if(idx>=0) ex.inspections[idx]=ni; else ex.inspections.unshift(ni); });
   });
   return list;
+}
+
+/* ================= タスクビュー ================= */
+function TaskList({tasks,openTask}){
+  if(!tasks.length) return <div className="empty"><div className="ic">🎉</div>未完了のタスクはありません。すべて是正済みです。</div>;
+  return <div className="insp-list">
+    {tasks.map((t,i)=>{ const f=dueFlag(t.due);
+      return <div key={t.kind+"-"+(t.inspId||"")+"-"+(t.drawingId||"")+"-"+i} className="task card" onClick={()=>openTask(t)}>
+        <div className="hd">
+          {t.kind==="pin"
+            ? <span className="pinno-s">{t.no}</span>
+            : <span className={"badge "+TYPES[t.type].badge}>{TYPES[t.type].short}</span>}
+          <span className="site">{t.propName}</span>
+          <span className={"due mono "+f}>{t.due?fmtDate(t.due):"期限なし"}{f==="over"?" 超過":""}</span>
+        </div>
+        <div className="body">{t.kind==="pin"?(t.issue||t.room||`是正番号 ${t.no}`):t.label}</div>
+        <div className="meta">
+          {t.kind==="pin"
+            ? <><span>図面：{t.drawingName}{t.type?`（${TYPES[t.type].short}）`:""}</span>{t.room&&<span>部屋：{t.room}</span>}{t.assignee&&<span>担当：{t.assignee}</span>}</>
+            : <><span>{t.category}</span>{t.issue&&<span style={{color:"var(--ng)"}}>{t.issue}</span>}</>}
+        </div>
+      </div>;})}
+  </div>;
+}
+
+/* ================= マニュアル ================= */
+function PdfViewer({doc}){
+  const [state,setState]=useState("loading");
+  const boxRef=useRef(null);
+  useEffect(()=>{ let cancel=false;
+    (async()=>{
+      setState("loading");
+      try{
+        ensurePdf(); if(!window.pdfjsLib) throw new Error("nopdf");
+        let opt;
+        if(doc.key){ const u=await idbGet(doc.key); if(!u) throw new Error("noimg"); opt={url:u}; }
+        else opt={url:doc.url};
+        const pdf=await pdfjsLib.getDocument(opt).promise;
+        if(cancel) return;
+        setState("ok");
+        const box=boxRef.current; if(!box) return; box.innerHTML="";
+        const n=Math.min(pdf.numPages,40);
+        for(let i=1;i<=n;i++){
+          const pg=await pdf.getPage(i);
+          const base=pg.getViewport({scale:1});
+          const scale=Math.min(1600/base.width,3);
+          const vp=pg.getViewport({scale});
+          const c=document.createElement("canvas"); c.width=Math.round(vp.width); c.height=Math.round(vp.height);
+          await pg.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;
+          if(cancel) return;
+          box.appendChild(c);
+        }
+        if(pdf.numPages>n){ const p=document.createElement("p"); p.className="man-note"; p.style.margin="4px 0 0"; p.textContent=`（${n}ページまで表示。全${pdf.numPages}ページ）`; box.appendChild(p); }
+      }catch(e){ if(!cancel) setState("err"); }
+    })();
+    return ()=>{cancel=true;};
+  },[doc]);
+  return <div className="man-viewer">
+    {state==="loading"&&<div className="empty">PDFを読み込み中…</div>}
+    {state==="err"&&<div className="empty"><div className="ic">⚠️</div>PDFを表示できませんでした。通信環境をご確認ください。{doc.url&&<div style={{marginTop:10}}><a className="btn btn-ghost btn-sm" href={doc.url} target="_blank" rel="noopener">別タブで開く</a></div>}</div>}
+    <div ref={boxRef}></div>
+  </div>;
+}
+
+function Manuals(){
+  const dlg=useDialog();
+  const [shared,setShared]=useState(null);
+  const [sharedErr,setSharedErr]=useState("");
+  const [locals,setLocals]=useState(()=>store.get(KEY+":m")||[]);
+  const [viewDoc,setViewDoc]=useState(null);
+  const fileRef=useRef(null);
+  useEffect(()=>store.set(KEY+":m",locals),[locals]);
+
+  const loadShared=async()=>{
+    setShared(null); setSharedErr("");
+    try{
+      const host=location.hostname, seg=location.pathname.split("/").filter(Boolean);
+      if(host.endsWith(".github.io")){
+        const user=host.split(".")[0];
+        const repo=seg.length?seg[0]:(user+".github.io");
+        const base=seg.length?`/${repo}/manuals/`:"/manuals/";
+        const res=await fetch(`https://api.github.com/repos/${user}/${repo}/contents/manuals`);
+        if(res.status===404){ setShared([]); setSharedErr("nofolder"); return; }
+        if(!res.ok) throw new Error("api");
+        const list=await res.json();
+        setShared((Array.isArray(list)?list:[]).filter(f=>f.type==="file"&&/\.pdf$/i.test(f.name))
+          .map(f=>({name:f.name.replace(/\.pdf$/i,""),url:base+encodeURIComponent(f.name)})));
+        return;
+      }
+      const res=await fetch("manuals/manifest.json",{cache:"no-store"});
+      if(!res.ok) throw new Error("manifest");
+      const mf=await res.json();
+      const files=Array.isArray(mf)?mf:(mf.files||[]);
+      setShared(files.map(f=>typeof f==="string"
+        ?{name:f.replace(/\.pdf$/i,""),url:"manuals/"+encodeURIComponent(f)}
+        :{name:f.name||f.file,url:"manuals/"+encodeURIComponent(f.file||f.name)}));
+    }catch(e){ setShared([]); setSharedErr("err"); }
+  };
+  useEffect(()=>{ loadShared(); },[]);
+
+  const pick=()=>fileRef.current&&fileRef.current.click();
+  const onFile=async(e)=>{
+    const f=e.target.files&&e.target.files[0]; e.target.value=""; if(!f) return;
+    try{
+      const url=await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=()=>rej(r.error); r.readAsDataURL(f); });
+      const key="man_"+uid(); await idbSet(key,url);
+      setLocals(l=>[{id:uid(),name:f.name.replace(/\.pdf$/i,""),key,created:Date.now()},...l]);
+    }catch(err){ await dlg.alert({title:"エラー",message:"PDFを取り込めませんでした。"}); }
+  };
+  const delLocal=async(m)=>{
+    if(await dlg.confirm({title:"マニュアルを削除",message:`「${m.name}」をこの端末から削除します。`})){
+      idbDel(m.key); setLocals(l=>l.filter(x=>x.id!==m.id));
+      if(viewDoc&&viewDoc.key===m.key) setViewDoc(null);
+    }
+  };
+
+  if(viewDoc) return <>
+    <div className="pad" style={{paddingBottom:0,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+      <button className="back-btn" onClick={()=>setViewDoc(null)}><Ico.back/>マニュアル一覧</button>
+      {viewDoc.url&&<a className="btn btn-ghost btn-sm" href={viewDoc.url} target="_blank" rel="noopener" style={{textDecoration:"none"}}>別タブで開く</a>}
+    </div>
+    <div className="sec-head" style={{marginTop:8}}><h2>{viewDoc.name}</h2></div>
+    <PdfViewer doc={viewDoc}/>
+  </>;
+
+  return <>
+    <div className="sec-head"><h2>共有マニュアル</h2>
+      <button className="btn btn-ghost btn-sm" onClick={loadShared}>再読込</button></div>
+    <p className="man-note" style={{marginTop:0}}>GitHubリポジトリの <b>manuals</b> フォルダに置いたPDFが、このアプリを開く全員に表示されます。</p>
+    <div className="insp-list" style={{paddingTop:0}}>
+      {shared===null&&<div className="empty">読み込み中…</div>}
+      {shared&&shared.length===0&&<div className="empty"><div className="ic">📁</div>
+        {sharedErr==="nofolder"
+          ?"リポジトリに manuals フォルダがまだありません。GitHubで manuals フォルダを作成し、PDFを追加してください。"
+          :sharedErr==="err"
+            ?"共有マニュアルを取得できませんでした。GitHub Pages上で開くと表示されます。"
+            :"共有マニュアルはまだありません。"}</div>}
+      {shared&&shared.map((m,i)=><div key={i} className="man-card card" onClick={()=>setViewDoc(m)}>
+        <Ico.pdf/><span className="nm">{m.name}</span><span className="tag">共有</span><Ico.chev/></div>)}
+    </div>
+
+    <div className="sec-head"><h2>この端末のマニュアル</h2>
+      <button className="btn btn-primary btn-sm" onClick={pick}><Ico.plus/>PDFを取込</button></div>
+    <p className="man-note" style={{marginTop:0}}>取り込んだPDFはこの端末のみに保存されます（他の人には共有されません）。</p>
+    <div className="insp-list" style={{paddingTop:0}}>
+      {locals.length===0&&<div className="empty"><div className="ic">📄</div>「PDFを取込」から施工マニュアル等を追加できます。</div>}
+      {locals.map(m=><div key={m.id} className="man-card card" onClick={()=>setViewDoc(m)}>
+        <Ico.pdf/><span className="nm">{m.name}</span><span className="tag">端末</span>
+        <button onClick={e=>{e.stopPropagation(); delLocal(m);}} style={{color:"var(--ng)",padding:"4px 2px"}}><Ico.trash/></button></div>)}
+    </div>
+    <input ref={fileRef} type="file" accept="application/pdf,.pdf" style={{display:"none"}} onChange={onFile}/>
+  </>;
+}
+
+/* ================= バックアップ（JSON：図面画像込み） ================= */
+async function exportBackup(templates,properties){
+  const images={}; const keys=[];
+  properties.forEach(p=>{
+    (p.drawings||[]).forEach(d=>{ if(d.imgKey) keys.push(d.imgKey); });
+    p.inspections.forEach(i=>(i.drawings||[]).forEach(d=>{ if(d.imgKey) keys.push(d.imgKey); }));
+  });
+  for(const k of keys){ const v=await idbGet(k); if(v) images[k]=v; }
+  const data={app:"reno-inspect",version:2,exported:new Date().toISOString(),templates,properties,images};
+  const blob=new Blob([JSON.stringify(data)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=`検査シート_バックアップ_${todayISO()}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),3000);
 }
 
 /* ================= サンプルデータ ================= */
