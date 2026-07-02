@@ -48,6 +48,7 @@
   .card{background:var(--surface); border:1px solid var(--line); border-radius:3px;}
   .muted{color:var(--sub);}
   .row{display:flex; gap:10px;}
+  .row>*{min-width:0;}
 
   /* サマリー：罫線で区切った集計行 */
   .summary{margin:14px 16px 0; background:var(--surface); border:1px solid var(--line); border-radius:3px; overflow:hidden;}
@@ -64,6 +65,8 @@
 
   .btn{display:inline-flex; align-items:center; justify-content:center; gap:6px; font-weight:600; border-radius:3px; padding:10px 14px; font-size:13.5px; min-height:42px; border:1px solid var(--line); background:var(--surface); color:var(--ink);}
   .btn:active{background:var(--surface-2);}
+  .btn svg{width:15px; height:15px; flex:none;}
+  .fab svg{width:15px; height:15px; flex:none;}
   .btn-primary{background:var(--accent); border-color:transparent; color:#fff; background-clip:padding-box;}
   .btn-primary:active{background:#173C5D;}
   .btn-ghost{background:var(--surface); color:var(--accent); border:1px solid var(--line);}
@@ -116,7 +119,8 @@
   .dhead .site{font-size:17px; font-weight:700;}
   .dfields{display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-top:13px;}
   .field label{display:block; font-size:11px; font-weight:600; color:var(--sub); letter-spacing:.04em; margin-bottom:4px;}
-  .field input{width:100%; border:1px solid var(--line); border-radius:2px; padding:9px 10px; background:var(--surface);}
+  .field{min-width:0;}
+  .field input{width:100%; min-width:0; border:1px solid var(--line); border-radius:2px; padding:9px 10px; background:var(--surface);}
   .field.full{grid-column:1 / -1;}
 
   .exrow{display:flex; gap:8px; margin:10px 16px 0;}
@@ -165,12 +169,13 @@
   .sheet h3{margin:0 0 4px; font-size:16px; font-weight:700;}
   .sheet .sub{font-size:12.5px; color:var(--sub); margin-bottom:14px;}
   .seg{display:grid; grid-template-columns:repeat(2,1fr); gap:1px; margin-bottom:14px; background:var(--line); border:1px solid var(--line);}
-  .seg button{padding:11px 6px; background:var(--surface); font-weight:600; font-size:13px; color:var(--sub); text-align:center;}
+  .seg button{padding:8px 4px; background:var(--surface); font-weight:600; font-size:12.5px; color:var(--sub); text-align:center; min-height:0;}
   .seg button.on{background:var(--accent); color:#fff;}
   .seg button.on small{color:#D7E2EC;}
-  .seg button small{display:block; font-weight:500; font-size:10px; margin-top:2px; color:var(--sub);}
+  .seg button small{display:block; font-weight:500; font-size:9.5px; margin-top:1px; color:var(--sub);}
   .flabel{font-size:11.5px; font-weight:600; color:var(--sub); margin:12px 0 5px; letter-spacing:.04em;}
-  .finput{width:100%; border:1px solid var(--line); border-radius:2px; padding:11px; background:var(--surface);}
+  .finput{width:100%; min-width:0; max-width:100%; border:1px solid var(--line); border-radius:2px; padding:10px 11px; background:var(--surface);}
+  input[type="date"]{-webkit-appearance:none; appearance:none; min-height:44px; text-align:left;}
   .sheet-actions{display:flex; gap:8px; margin-top:18px;}
 
   .ovc{position:fixed; inset:0; z-index:70; background:rgba(25,32,40,.5); display:flex; align-items:center; justify-content:center; padding:24px;}
@@ -419,13 +424,6 @@ const DEFAULT_TEMPLATES={
     {id:uid(),name:"給湯・ガス",items:["給湯器の着火・設定温度","ガス漏れ確認","リモコンの動作"].map(t=>({id:uid(),label:t}))},
     {id:uid(),name:"衛生機器",items:["トイレの洗浄・止水","洗面・浴室の動作","IH・食洗機の動作確認"].map(t=>({id:uid(),label:t}))},
   ],
-  shunko:[
-    {id:uid(),name:"内装仕上げ",items:["クロス・塗装の汚れ、キズ、浮き","床材のキズ・汚れ・床鳴り","巾木・廻り縁・見切りの納まり"].map(t=>({id:uid(),label:t}))},
-    {id:uid(),name:"建具",items:["ドア・引戸の開閉、建付け、鍵の動作","サッシ・網戸の開閉と施錠","収納扉・金物の動作"].map(t=>({id:uid(),label:t}))},
-    {id:uid(),name:"設備動作",items:["給水・給湯・排水の最終確認（漏水なし）","電気設備の通電・照明・スイッチ動作","給湯器・エアコン・換気設備の運転確認"].map(t=>({id:uid(),label:t}))},
-    {id:uid(),name:"是正確認",items:["中間・内装・設備検査の指摘が全て是正済である","是正マップの番号が全て完了している"].map(t=>({id:uid(),label:t}))},
-    {id:uid(),name:"清掃・引渡し",items:["美装（ハウスクリーニング）の仕上がり","残材・養生の撤去","鍵・保証書・取扱説明書の準備"].map(t=>({id:uid(),label:t}))},
-  ],
 };
 
 /* ---------- 集計 ---------- */
@@ -455,12 +453,12 @@ function propPinStats(prop){ let pins=0,done=0;
 function typeStatus(prop,t){
   const list=prop.inspections.filter(i=>i.type===t);
   if(!list.length) return "none";
-  let zan=0,total=0,checked=0,pinZan=0;
+  let zan=0,total=0,checked=0,pins=0,pinZan=0;
   list.forEach(i=>{const m=metrics(i); zan+=m.zan; total+=m.total; checked+=m.checked;
-    (i.drawings||[]).forEach(d=>(d.pins||[]).forEach(p=>{if(!p.done)pinZan++;}));});
+    (i.drawings||[]).forEach(d=>(d.pins||[]).forEach(p=>{pins++; if(!p.done)pinZan++;}));});
   if(zan>0||pinZan>0) return "ng";
-  if(total>0&&checked===total) return "ok";
-  return "prog"; }
+  if(total>0) return checked===total?"ok":"prog";
+  return pins>0?"ok":"prog"; }
 function collectTasks(properties){
   const out=[];
   properties.forEach(p=>{
@@ -492,7 +490,7 @@ const Ico={
   dash:p=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>,
   tmpl:p=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>,
   back:p=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" width="20" height="20" {...p}><path d="M15 18l-6-6 6-6"/></svg>,
-  plus:p=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" {...p}><path d="M12 5v14M5 12h14"/></svg>,
+  plus:p=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" width="15" height="15" {...p}><path d="M12 5v14M5 12h14"/></svg>,
   chev:p=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18" {...p}><path d="M9 18l6-6-6-6"/></svg>,
   menu:p=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" width="22" height="22" {...p}><path d="M3 6h18M3 12h18M3 18h18"/></svg>,
   search:p=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18" {...p}><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>,
@@ -542,7 +540,7 @@ function DialogView({st,finish}){
 /* ================= APP ================= */
 function App(){
   const dlg=useDialog();
-  const [templates,setTemplates]=useState(()=>{ const t=store.get(KEY+":t"); return t?{...DEFAULT_TEMPLATES,...t}:DEFAULT_TEMPLATES; });
+  const [templates,setTemplates]=useState(()=>{ const t=store.get(KEY+":t"); if(!t) return DEFAULT_TEMPLATES; const {shunko,...rest}=t; return {...DEFAULT_TEMPLATES,...rest}; });
   const [properties,setProperties]=useState(()=>{ const s=store.get(KEY+":p"); return s?migrateProps(s):seedProperties(); });
   const [view,setView]=useState({name:"dash"});
   const [printT,setPrintT]=useState(null); // {prop, insps:[...]}
@@ -849,12 +847,13 @@ function NewInspection({templates,onClose,onCreate}){
   const [inspector,setInspector]=useState("");
   const create=()=>{
     const results=[];
-    templates[type].forEach(cat=>cat.items.forEach(it=>results.push({id:uid(),category:cat.name,label:it.label,judge:"none",issue:"",fixed:false,due:""})));
+    (templates[type]||[]).forEach(cat=>cat.items.forEach(it=>results.push({id:uid(),category:cat.name,label:it.label,judge:"none",issue:"",fixed:false,due:""})));
     onCreate({id:uid(),type,date,inspector:inspector.trim(),results,drawings:[],created:Date.now()});
   };
   return <Sheet title="検査を追加" sub="種別を選ぶと、テンプレートの項目が自動で読み込まれます。" onClose={onClose}>
     <div className="flabel">検査種別</div>
-    <div className="seg">{TYPE_ORDER.map(k=><button key={k} className={type===k?"on":""} onClick={()=>setType(k)}>{TYPES[k].short}<small>{TYPES[k].name}</small></button>)}</div>
+    <div className="seg">{TYPE_ORDER.map(k=><button key={k} className={type===k?"on":""} onClick={()=>setType(k)}>{TYPES[k].short}<small>{k==="shunko"?"是正マップのみ":TYPES[k].name}</small></button>)}</div>
+    {type==="shunko"&&<p className="muted" style={{fontSize:12,margin:"0 2px 4px",lineHeight:1.7}}>竣工検査はチェックリストを使わず、図面（是正マップ）のみで管理します。</p>}
     <div className="row">
       <div style={{flex:1}}><div className="flabel">検査日</div><input className="finput" type="date" value={date} onChange={e=>setDate(e.target.value)}/></div>
       <div style={{flex:1}}><div className="flabel">検査者</div><input className="finput" placeholder="氏名" value={inspector} onChange={e=>setInspector(e.target.value)}/></div>
@@ -871,6 +870,9 @@ function InspectionDetail({prop,insp,update,openDrawing,onDelete,onExcel,onPdf})
   const dlg=useDialog();
   const [showDwg,setShowDwg]=useState(false);
   const m=metrics(insp); const T=TYPES[insp.type];
+  const isMap=insp.type==="shunko";
+  const pinsAll=(insp.drawings||[]).reduce((s,d)=>s+(d.pins||[]).length,0);
+  const pinsDone=(insp.drawings||[]).reduce((s,d)=>s+(d.pins||[]).filter(p=>p.done).length,0);
   const cats=[]; insp.results.forEach(r=>{let c=cats.find(x=>x.name===r.category); if(!c){c={name:r.category,items:[]};cats.push(c);} c.items.push(r);});
 
   const setRes=(id,patch)=>update(i=>({...i,results:i.results.map(r=>r.id===id?{...r,...patch}:r)}));
@@ -893,18 +895,25 @@ function InspectionDetail({prop,insp,update,openDrawing,onDelete,onExcel,onPdf})
         <div className="field"><label>検査日</label><input type="date" value={insp.date} onChange={e=>setHead({date:e.target.value})}/></div>
         <div className="field"><label>検査者</label><input value={insp.inspector} onChange={e=>setHead({inspector:e.target.value})}/></div>
       </div>
-      <div className="stats" style={{marginTop:14}}>
-        <div className="stat"><div className="v mono">{m.checked}/{m.total}</div><div className="k">検査済</div></div>
-        <div className="stat"><div className="v ng mono">{m.ng}</div><div className="k">指摘</div></div>
-        <div className="stat"><div className="v zan mono">{m.zan}</div><div className="k">是正残</div></div>
-        <div className="stat"><div className="v done mono">{m.fixed}</div><div className="k">是正済</div></div>
-      </div>
+      {isMap
+        ? <div className="stats" style={{marginTop:14}}>
+            <div className="stat"><div className="v mono">{(insp.drawings||[]).length}</div><div className="k">図面</div></div>
+            <div className="stat"><div className="v ng mono">{pinsAll}</div><div className="k">指摘</div></div>
+            <div className="stat"><div className="v zan mono">{pinsAll-pinsDone}</div><div className="k">是正残</div></div>
+            <div className="stat"><div className="v done mono">{pinsDone}</div><div className="k">是正済</div></div>
+          </div>
+        : <div className="stats" style={{marginTop:14}}>
+            <div className="stat"><div className="v mono">{m.checked}/{m.total}</div><div className="k">検査済</div></div>
+            <div className="stat"><div className="v ng mono">{m.ng}</div><div className="k">指摘</div></div>
+            <div className="stat"><div className="v zan mono">{m.zan}</div><div className="k">是正残</div></div>
+            <div className="stat"><div className="v done mono">{m.fixed}</div><div className="k">是正済</div></div>
+          </div>}
     </div>
 
-    <div className="exrow">
+    {!isMap && <div className="exrow">
       <button className="btn btn-ghost btn-block" onClick={onExcel}><Ico.xls/>Excel出力</button>
       <button className="btn btn-ghost btn-block" onClick={onPdf}><Ico.pdf/>PDF出力</button>
-    </div>
+    </div>}
 
     <div className="sec-head"><h2>図面（是正マップ）</h2>
       <button className="btn btn-primary btn-sm" onClick={()=>setShowDwg(true)}><Ico.plus/>図面を追加</button></div>
@@ -913,7 +922,7 @@ function InspectionDetail({prop,insp,update,openDrawing,onDelete,onExcel,onPdf})
       {(insp.drawings||[]).map(d=><DrawingCard key={d.id} d={d} onOpen={()=>openDrawing(d)} />)}
     </div>
 
-    {cats.map((cat,ci)=>{ const ng=cat.items.filter(r=>r.judge==="ng").length;
+    {!isMap && cats.map((cat,ci)=>{ const ng=cat.items.filter(r=>r.judge==="ng").length;
       return <div className="cat" key={ci}>
         <div className="cat-head"><span className="nm">{cat.name}</span>
           <span className="ct">{cat.items.length}項目{ng>0&&<span style={{color:"var(--ng)"}}>・指摘{ng}</span>}</span></div>
@@ -923,7 +932,7 @@ function InspectionDetail({prop,insp,update,openDrawing,onDelete,onExcel,onPdf})
         </div>
       </div>;})}
 
-    <div className="pad"><button className="btn btn-ghost btn-block" onClick={addCat}><Ico.plus/>カテゴリを追加</button></div>
+    {!isMap && <div className="pad"><button className="btn btn-ghost btn-block" onClick={addCat}><Ico.plus/>カテゴリを追加</button></div>}
 
     {showDwg && <ImportDrawing onClose={()=>setShowDwg(false)} onCreate={d=>{ update(i=>({...i,drawings:[...(i.drawings||[]),d]})); setShowDwg(false); openDrawing(d); }} />}
   </>;
@@ -970,8 +979,8 @@ function Templates({templates,setTemplates}){
   const reset=async()=>{ if(await dlg.confirm({title:"テンプレートを初期化",message:`${TYPES[type].name}の項目を初期状態に戻します。`,ok:"初期化",danger:true})) setTemplates(t=>({...t,[type]:JSON.parse(JSON.stringify(DEFAULT_TEMPLATES[type]))})); };
 
   return <div className="pad">
-    <div className="seg">{TYPE_ORDER.map(k=><button key={k} className={type===k?"on":""} onClick={()=>setType(k)}>{TYPES[k].short}<small>{TYPES[k].name}</small></button>)}</div>
-    <p className="muted" style={{fontSize:13,margin:"2px 2px 12px"}}>ここで編集した項目が、新規検査の初期チェック項目になります。（作成済みの検査には影響しません）</p>
+    <div className="seg" style={{gridTemplateColumns:"repeat(3,1fr)"}}>{TYPE_ORDER.filter(k=>k!=="shunko").map(k=><button key={k} className={type===k?"on":""} onClick={()=>setType(k)}>{TYPES[k].short}<small>{TYPES[k].name}</small></button>)}</div>
+    <p className="muted" style={{fontSize:13,margin:"2px 2px 12px"}}>ここで編集した項目が、新規検査の初期チェック項目になります。（作成済みの検査には影響しません。竣工検査は是正マップのみのためテンプレートはありません）</p>
 
     {cats.map(cat=><div className="cat-body" key={cat.id} style={{marginBottom:12}}>
       <div className="item" style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--surface-2)"}}>
