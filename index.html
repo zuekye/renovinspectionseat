@@ -151,6 +151,13 @@
   .fixtog button.on.yes{background:var(--pass); color:#fff;}
   .due{flex:1; border:1px solid #DCAEB5; border-radius:2px; padding:8px 9px; background:#fff; min-width:0;}
 
+  .subrow{display:flex; gap:8px; margin-top:9px;}
+  .ptog{border:1px solid var(--line); border-radius:2px; padding:0 11px; font-size:12.5px; font-weight:600; color:var(--sub); background:var(--surface); min-height:38px; white-space:nowrap; flex:none;}
+  .ptog.on{background:var(--pass-bg); border-color:var(--pass); color:var(--pass);}
+  .cmt{flex:1; min-width:0; border:1px solid var(--line); border-radius:2px; padding:7px 9px; background:var(--surface);}
+  .ktog{width:27px; height:27px; border:1px solid var(--line); border-radius:2px; background:var(--surface); color:var(--pass); font-weight:700; font-size:14px; flex:none; display:flex; align-items:center; justify-content:center;}
+  .ktog.on{background:var(--pass-bg); border-color:var(--pass);}
+  .b-extra{background:var(--warn-bg); color:var(--warn); border-color:#DEC27C;}
   .item-tools{display:flex; gap:14px; margin-top:9px;}
   .item-tools button{font-size:11.5px; font-weight:600; color:var(--sub); display:flex; align-items:center; gap:4px;}
   .item-tools button.del{color:var(--ng);}
@@ -310,6 +317,7 @@
     .pr-cat td{background:#f3f3f3; font-weight:800;}
     .pr-j{font-weight:800; text-align:center; white-space:nowrap;}
     .pr-foot{margin-top:12px; font-size:11px; display:flex; gap:30px;}
+    .pr-remarks{margin-top:8px; font-size:11px; border:1px solid #888; padding:6px 8px; white-space:pre-wrap;}
     .pd-wrap{display:flex; gap:14px; align-items:flex-start;}
     .pd-img{position:relative; width:56%; flex:none;}
     .pd-img img{width:100%; display:block; border:1px solid #999;}
@@ -533,12 +541,13 @@ function propMetrics(prop){
 function latestInspDate(prop){ const ds=prop.inspections.map(i=>i.date).filter(Boolean).sort(); return ds.length?ds[ds.length-1]:""; }
 function nearestDue(prop){ const ds=[];
   prop.inspections.forEach(i=>{ i.results.forEach(r=>{ if(r.judge==="ng"&&!r.fixed&&r.due) ds.push(r.due); });
-    (i.drawings||[]).forEach(d=>(d.pins||[]).forEach(p=>{ if(!p.done&&p.due) ds.push(p.due); })); });
+    (i.drawings||[]).forEach(d=>(d.pins||[]).forEach(p=>{ if(!p.done&&p.due) ds.push(p.due); }));
+    (i.extras||[]).forEach(x=>{ if(!x.done&&x.due) ds.push(x.due); }); });
   (prop.drawings||[]).forEach(d=>(d.pins||[]).forEach(p=>{ if(!p.done&&p.due) ds.push(p.due); }));
   ds.sort(); return ds.length?ds[0]:null; }
 function propPinStats(prop){ let pins=0,done=0;
   const eat=d=>(d.pins||[]).forEach(p=>{pins++; if(p.done)done++;});
-  prop.inspections.forEach(i=>(i.drawings||[]).forEach(eat));
+  prop.inspections.forEach(i=>{ (i.drawings||[]).forEach(eat); (i.extras||[]).forEach(x=>{pins++; if(x.done)done++;}); });
   (prop.drawings||[]).forEach(eat);
   return {pins,done,zan:pins-done}; }
 function typeStatus(prop,t){
@@ -546,7 +555,8 @@ function typeStatus(prop,t){
   if(!list.length) return "none";
   let zan=0,total=0,checked=0,pins=0,pinZan=0;
   list.forEach(i=>{const m=metrics(i); zan+=m.zan; total+=m.total; checked+=m.checked;
-    (i.drawings||[]).forEach(d=>(d.pins||[]).forEach(p=>{pins++; if(!p.done)pinZan++;}));});
+    (i.drawings||[]).forEach(d=>(d.pins||[]).forEach(p=>{pins++; if(!p.done)pinZan++;}));
+    (i.extras||[]).forEach(x=>{pins++; if(!x.done)pinZan++;});});
   if(zan>0||pinZan>0) return "ng";
   if(total>0) return checked===total?"ok":"prog";
   return pins>0?"ok":"prog"; }
@@ -556,6 +566,7 @@ function collectTasks(properties){
     p.inspections.forEach(i=>{
       i.results.forEach(r=>{ if(r.judge==="ng"&&!r.fixed) out.push({kind:"insp",propId:p.id,propName:p.name,inspId:i.id,type:i.type,category:r.category,label:r.label,issue:r.issue||"",due:r.due||""}); });
       (i.drawings||[]).forEach(d=>(d.pins||[]).forEach(pin=>{ if(!pin.done) out.push({kind:"pin",propId:p.id,propName:p.name,inspId:i.id,type:i.type,drawingId:d.id,drawingName:d.name,no:pin.no,room:pin.room||"",issue:pin.issue||"",assignee:pin.assignee||"",due:pin.due||""}); }));
+      (i.extras||[]).forEach(x=>{ if(!x.done&&String(x.text||"").trim()) out.push({kind:"extra",propId:p.id,propName:p.name,inspId:i.id,type:i.type,text:x.text,due:x.due||""}); });
     });
     (p.drawings||[]).forEach(d=>(d.pins||[]).forEach(pin=>{ if(!pin.done) out.push({kind:"pin",propId:p.id,propName:p.name,inspId:null,type:null,drawingId:d.id,drawingName:d.name,no:pin.no,room:pin.room||"",issue:pin.issue||"",assignee:pin.assignee||"",due:pin.due||""}); }));
   });
@@ -643,6 +654,21 @@ function App(){
   useEffect(()=>store.set(KEY+":p",properties),[properties]);
 
   const doImport=()=>{ setMenu(false); fileRef.current&&fileRef.current.click(); };
+  const shareRef=useRef(null);
+  const doShareFull=()=>{ setMenu(false); exportShareJSON(properties); };
+  const doImportFull=()=>{ setMenu(false); shareRef.current&&shareRef.current.click(); };
+  const onShareJson=async(e)=>{
+    const f=e.target.files&&e.target.files[0]; e.target.value=""; if(!f) return;
+    try{
+      const data=JSON.parse(await f.text());
+      if(data.app!=="reno-inspect"||!Array.isArray(data.properties)) throw new Error("format");
+      const imgs=data.images||{};
+      for(const k of Object.keys(imgs)) await idbSet(k,imgs[k]);
+      const imported=migrateProps(data.properties);
+      setProperties(cur=>mergeShared(cur,imported));
+      await dlg.alert({title:"取込完了",message:`${imported.length}件の物件を取り込みました（図面・是正マップ込み）。同じ物件・検査は取込内容で更新されています。`});
+    }catch(err){ await dlg.alert({title:"エラー",message:"共有ファイル(JSON)を読み込めませんでした。「共有データを出力（図面込み）」で書き出したファイルを選んでください。"}); }
+  };
   const doShare=()=>{ setMenu(false); exportShareExcel(properties); };
   const doSummary=()=>{ setMenu(false); exportAllExcel(properties); };
   const onFile=async(e)=>{
@@ -699,8 +725,8 @@ function App(){
     <div className="screen content">
       {view.name==="dash" && <Dashboard properties={properties}
         open={p=>setView({name:"property",propId:p.id})}
-        openTask={t=>{ if(t.kind==="insp") setView({name:"detail",propId:t.propId,inspId:t.inspId});
-          else setView({name:"drawing",propId:t.propId,inspId:t.inspId||undefined,drawingId:t.drawingId}); }}
+        openTask={t=>{ if(t.kind==="pin") setView({name:"drawing",propId:t.propId,inspId:t.inspId||undefined,drawingId:t.drawingId});
+          else setView({name:"detail",propId:t.propId,inspId:t.inspId}); }}
         onAdd={p=>{setProperties(l=>[p,...l]); setView({name:"property",propId:p.id});}} />}
 
       {view.name==="property" && prop && <PropertyDetail prop={prop}
@@ -745,6 +771,9 @@ function App(){
       <div className="menu screen">
         <button onClick={doImport}><Ico.imp/>Excelを取込</button>
         <button onClick={doShare}><Ico.exp/>共有Excelを出力</button>
+        <div style={{borderTop:"1px solid var(--line-2)",margin:"6px 0"}}></div>
+        <button onClick={doImportFull}><Ico.imp/>共有データを取込（図面込み）</button>
+        <button onClick={doShareFull}><Ico.exp/>共有データを出力（図面込み）</button>
         <button onClick={doSummary}><Ico.xls/>一覧サマリを出力</button>
         <div style={{borderTop:"1px solid var(--line-2)",margin:"6px 0"}}></div>
         <button onClick={doBackup}><Ico.exp/>バックアップ保存（JSON）</button>
@@ -752,6 +781,7 @@ function App(){
       </div></>}
     <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{display:"none"}} onChange={onFile}/>
     <input ref={jsonRef} type="file" accept="application/json,.json" style={{display:"none"}} onChange={onJson}/>
+    <input ref={shareRef} type="file" accept="application/json,.json" style={{display:"none"}} onChange={onShareJson}/>
   </div>;
 }
 
@@ -914,7 +944,7 @@ function PropertyDetail({prop,update,templates,openInsp,openDrawing,onDelete,onE
               <span className="mono" style={{fontSize:12.5,fontWeight:700}}>{im.ng>0?`指摘${im.ng} / 是正残${im.zan}`:"指摘なし"}</span><Ico.chev/>
             </div>
           </div>
-          <div className="meta"><span>検査日：{fmtDate(i.date)}</span>{i.inspector&&<span>検査者：{i.inspector}</span>}{(i.drawings||[]).length>0&&<span>図面{(i.drawings||[]).length}・ピン残{(i.drawings||[]).reduce((s,d)=>s+(d.pins||[]).filter(p=>!p.done).length,0)}</span>}</div>
+          <div className="meta"><span>検査日：{fmtDate(i.date)}</span>{i.inspector&&<span>{i.type==="shunko"?"PL：":"検査者："}{i.inspector}</span>}{i.type==="shunko"&&i.custInspector&&<span>お客様：{i.custInspector}</span>}{(i.drawings||[]).length>0&&<span>図面{(i.drawings||[]).length}・ピン残{(i.drawings||[]).reduce((s,d)=>s+(d.pins||[]).filter(p=>!p.done).length,0)}</span>}</div>
           <div className="pbar"><i style={{width:im.prog+"%"}}></i></div>
           <div className="pmeta"><span>検査進捗 {im.checked}/{im.total}</span><span>{im.prog}%</span></div>
         </div>;})}
@@ -936,10 +966,11 @@ function NewInspection({templates,onClose,onCreate}){
   const [type,setType]=useState("chukan");
   const [date,setDate]=useState(todayISO());
   const [inspector,setInspector]=useState("");
+  const [cust,setCust]=useState("");
   const create=()=>{
     const results=[];
-    (templates[type]||[]).forEach(cat=>cat.items.forEach(it=>results.push({id:uid(),category:cat.name,label:it.label,judge:"none",issue:"",fixed:false,due:""})));
-    onCreate({id:uid(),type,date,inspector:inspector.trim(),results,drawings:[],created:Date.now()});
+    (templates[type]||[]).forEach(cat=>cat.items.forEach(it=>results.push({id:uid(),category:cat.name,label:it.label,judge:"none",issue:"",fixed:false,due:"",photo:false,note:""})));
+    onCreate({id:uid(),type,date,inspector:inspector.trim(),custInspector:type==="shunko"?cust.trim():"",results,drawings:[],created:Date.now()});
   };
   return <Sheet title="検査を追加" sub="種別を選ぶと、テンプレートの項目が自動で読み込まれます。" onClose={onClose}>
     <div className="flabel">検査種別</div>
@@ -947,8 +978,10 @@ function NewInspection({templates,onClose,onCreate}){
     {type==="shunko"&&<p className="muted" style={{fontSize:12,margin:"0 2px 4px",lineHeight:1.7}}>竣工検査はチェックリストを使わず、図面（是正マップ）のみで管理します。</p>}
     <div className="row">
       <div style={{flex:1}}><div className="flabel">検査日</div><input className="finput" type="date" value={date} onChange={e=>setDate(e.target.value)}/></div>
-      <div style={{flex:1}}><div className="flabel">検査者</div><input className="finput" placeholder="氏名" value={inspector} onChange={e=>setInspector(e.target.value)}/></div>
+      <div style={{flex:1}}><div className="flabel">{type==="shunko"?"PL検査者":"検査者"}</div><input className="finput" placeholder="氏名" value={inspector} onChange={e=>setInspector(e.target.value)}/></div>
     </div>
+    {type==="shunko"&&<><div className="flabel">お客様検査者</div>
+    <input className="finput" placeholder="氏名" value={cust} onChange={e=>setCust(e.target.value)}/></>}
     <div className="sheet-actions">
       <button className="btn btn-ghost btn-block" onClick={onClose}>キャンセル</button>
       <button className="btn btn-primary btn-block" onClick={create}>作成する</button>
@@ -964,6 +997,12 @@ function InspectionDetail({prop,insp,update,openDrawing,onDelete,onExcel,onPdf})
   const isMap=insp.type==="shunko";
   const pinsAll=(insp.drawings||[]).reduce((s,d)=>s+(d.pins||[]).length,0);
   const pinsDone=(insp.drawings||[]).reduce((s,d)=>s+(d.pins||[]).filter(p=>p.done).length,0);
+  const addKak=()=>update(x=>({...x,kakunin:[...(x.kakunin||[]),{id:uid(),text:"",done:false}]}));
+  const updKak=(id,patch)=>update(x=>({...x,kakunin:(x.kakunin||[]).map(k=>k.id===id?{...k,...patch}:k)}));
+  const delKak=async(id,tx)=>{ if(tx&&!(await dlg.confirm({title:"確認事項を削除",message:`「${tx}」を削除します。`})))return; update(x=>({...x,kakunin:(x.kakunin||[]).filter(k=>k.id!==id)})); };
+  const addExtra=()=>update(x=>({...x,extras:[...(x.extras||[]),{id:uid(),text:"",done:false,due:""}]}));
+  const updExtra=(id,patch)=>update(x=>({...x,extras:(x.extras||[]).map(k=>k.id===id?{...k,...patch}:k)}));
+  const delExtra=async(id,tx)=>{ if(tx&&!(await dlg.confirm({title:"追加工事を削除",message:`「${tx}」を削除します。`})))return; update(x=>({...x,extras:(x.extras||[]).filter(k=>k.id!==id)})); };
   const cats=[]; insp.results.forEach(r=>{let c=cats.find(x=>x.name===r.category); if(!c){c={name:r.category,items:[]};cats.push(c);} c.items.push(r);});
 
   const setRes=(id,patch)=>update(i=>({...i,results:i.results.map(r=>r.id===id?{...r,...patch}:r)}));
@@ -984,7 +1023,8 @@ function InspectionDetail({prop,insp,update,openDrawing,onDelete,onExcel,onPdf})
       </div>
       <div className="dfields">
         <div className="field"><label>検査日</label><input type="date" value={insp.date} onChange={e=>setHead({date:e.target.value})}/></div>
-        <div className="field"><label>検査者</label><input value={insp.inspector} onChange={e=>setHead({inspector:e.target.value})}/></div>
+        <div className="field"><label>{isMap?"PL検査者":"検査者"}</label><input value={insp.inspector} onChange={e=>setHead({inspector:e.target.value})}/></div>
+        {isMap&&<div className="field full"><label>お客様検査者</label><input value={insp.custInspector||""} onChange={e=>setHead({custInspector:e.target.value})}/></div>}
       </div>
       {isMap
         ? <div className="stats" style={{marginTop:14}}>
@@ -1013,6 +1053,45 @@ function InspectionDetail({prop,insp,update,openDrawing,onDelete,onExcel,onPdf})
       {(insp.drawings||[]).map(d=><DrawingCard key={d.id} d={d} onOpen={()=>openDrawing(d)} />)}
     </div>
 
+    {isMap && <>
+      <div className="sec-head"><h2>確認事項</h2>
+        <button className="btn btn-primary btn-sm" onClick={addKak}><Ico.plus/>追加</button></div>
+      <div className="insp-list" style={{paddingTop:0,paddingBottom:4}}>
+        {(insp.kakunin||[]).length===0 && <div className="empty" style={{padding:"16px"}}>立会い時の確認・申し送り事項をメモできます。</div>}
+        {(insp.kakunin||[]).length>0 && <div className="cat-body">
+          {(insp.kakunin||[]).map(k=><div className="pinrow" key={k.id}>
+            <div className="ph">
+              <button className={"ktog"+(k.done?" on":"")} onClick={()=>updKak(k.id,{done:!k.done})}>{k.done?"✓":""}</button>
+              <input style={{marginTop:0,flex:1,textDecoration:k.done?"line-through":"none",color:k.done?"var(--sub)":"var(--ink)"}} placeholder="確認事項" value={k.text} onChange={e=>updKak(k.id,{text:e.target.value})}/>
+              <button onClick={()=>delKak(k.id,k.text)} style={{color:"var(--ng)",padding:"4px 2px"}}><Ico.trash/></button>
+            </div>
+          </div>)}
+        </div>}
+      </div>
+
+      <div className="sec-head"><h2>追加工事</h2>
+        <button className="btn btn-primary btn-sm" onClick={addExtra}><Ico.plus/>追加</button></div>
+      <div className="insp-list" style={{paddingTop:0,paddingBottom:4}}>
+        {(insp.extras||[]).length===0 && <div className="empty" style={{padding:"16px"}}>追加工事を登録すると、未完了分がダッシュボードのタスクに表示されます。</div>}
+        {(insp.extras||[]).length>0 && <div className="cat-body">
+          {(insp.extras||[]).map(x=><div className="pinrow" key={x.id}>
+            <div className="ph">
+              <span className="badge b-extra">追加</span>
+              <input style={{marginTop:0,flex:1}} placeholder="追加工事の内容" value={x.text} onChange={e=>updExtra(x.id,{text:e.target.value})}/>
+              <button onClick={()=>delExtra(x.id,x.text)} style={{color:"var(--ng)",padding:"4px 2px"}}><Ico.trash/></button>
+            </div>
+            <div className="fixrow">
+              <div className="fixtog" style={{borderColor:"var(--line)"}}>
+                <button className={"no"+(!x.done?" on":"")} onClick={()=>updExtra(x.id,{done:false})}>未完了</button>
+                <button className={"yes"+(x.done?" on":"")} onClick={()=>updExtra(x.id,{done:true})}>完了</button>
+              </div>
+              <input className="due" style={{borderColor:"var(--line)"}} type="date" value={x.due||""} onChange={e=>updExtra(x.id,{due:e.target.value})}/>
+            </div>
+          </div>)}
+        </div>}
+      </div>
+    </>}
+
     {!isMap && cats.map((cat,ci)=>{ const ng=cat.items.filter(r=>r.judge==="ng").length;
       return <div className="cat" key={ci}>
         <div className="cat-head"><span className="nm">{cat.name}</span>
@@ -1025,6 +1104,11 @@ function InspectionDetail({prop,insp,update,openDrawing,onDelete,onExcel,onPdf})
 
     {!isMap && <div className="pad"><button className="btn btn-ghost btn-block" onClick={addCat}><Ico.plus/>カテゴリを追加</button></div>}
 
+    <div className="sec-head"><h2>備考</h2></div>
+    <div className="pad" style={{paddingTop:0}}>
+      <textarea className="finput" rows={3} placeholder="備考・申し送り事項" value={insp.remarks||""} onChange={e=>update(x=>({...x,remarks:e.target.value}))} style={{resize:"vertical",minHeight:76}}/>
+    </div>
+
     {showDwg && <ImportDrawing onClose={()=>setShowDwg(false)} onCreate={d=>{ update(i=>({...i,drawings:[...(i.drawings||[]),d]})); setShowDwg(false); openDrawing(d); }} />}
   </>;
 }
@@ -1036,6 +1120,10 @@ function ItemRow({r,no,setRes,editItem,delItem}){
       <button className={"jbtn ok"+(r.judge==="ok"?" on":"")} onClick={()=>setRes(r.id,{judge:r.judge==="ok"?"none":"ok"})}>適合</button>
       <button className={"jbtn ng"+(r.judge==="ng"?" on":"")} onClick={()=>setRes(r.id,{judge:r.judge==="ng"?"none":"ng"})}>指摘</button>
       <button className={"jbtn na"+(r.judge==="na"?" on":"")} onClick={()=>setRes(r.id,{judge:r.judge==="na"?"none":"na"})}>対象外</button>
+    </div>
+    <div className="subrow">
+      <button className={"ptog"+(r.photo?" on":"")} onClick={()=>setRes(r.id,{photo:!r.photo})}>{r.photo?"☑":"☐"} 写真</button>
+      <input className="cmt" placeholder="コメント" value={r.note||""} onChange={e=>setRes(r.id,{note:e.target.value})}/>
     </div>
     {r.judge==="ng" && <div className="ng-panel">
       <textarea placeholder="指摘内容（例：○○に浮きあり。要再施工）" value={r.issue} onChange={e=>setRes(r.id,{issue:e.target.value})}/>
@@ -1107,19 +1195,32 @@ function PrintReport({prop,insps}){
         <div className="pr-h"><div className="t">{T.name}　検査表</div><div style={{textAlign:"right",fontSize:12}}>リノベーション検査シート</div></div>
         <div className="pr-meta">
           <div><b>物件名</b>{prop.name}</div><div><b>検査日</b>{fmtDate(insp.date)}</div>
-          <div><b>顧客</b>{prop.client||"—"}</div><div><b>検査者</b>{insp.inspector||"—"}</div>
+          <div><b>顧客</b>{prop.client||"—"}</div><div><b>{insp.type==="shunko"?"PL検査者":"検査者"}</b>{insp.inspector||"—"}</div>
+          {insp.type==="shunko"&&<><div><b>お客様検査者</b>{insp.custInspector||"—"}</div><div></div></>}
           <div><b>住所</b>{prop.address||"—"}</div><div><b>集計</b>指摘 {m.ng} / 是正残 {m.zan} / 検査済 {m.checked}/{m.total}</div>
         </div>
-        <table className="pr">
-          <thead><tr><th style={{width:"4%"}}>No</th><th style={{width:"33%"}}>検査項目</th><th style={{width:"9%"}}>判定</th><th>指摘内容</th><th style={{width:"9%"}}>是正</th><th style={{width:"12%"}}>期限</th></tr></thead>
+        {insp.type==="shunko"
+          ? <>
+              <table className="pr">
+                <thead><tr><th style={{width:"7%"}}>確認</th><th>確認事項</th></tr></thead>
+                <tbody>{(insp.kakunin||[]).length?(insp.kakunin||[]).map(k=><tr key={k.id}><td className="pr-j">{k.done?"✓":""}</td><td>{k.text}</td></tr>):<tr><td className="pr-j">—</td><td>（なし）</td></tr>}</tbody>
+              </table>
+              <table className="pr" style={{marginTop:8}}>
+                <thead><tr><th style={{width:"10%"}}>状態</th><th>追加工事</th><th style={{width:"14%"}}>期限</th></tr></thead>
+                <tbody>{(insp.extras||[]).length?(insp.extras||[]).map(x=><tr key={x.id} className={x.done?"done":""}><td className="pr-j pr-no">{x.done?"完了":"未"}</td><td>{x.text}</td><td>{x.due?fmtDate(x.due):""}</td></tr>):<tr><td className="pr-j">—</td><td colSpan={2}>（なし）</td></tr>}</tbody>
+              </table>
+            </>
+          : <table className="pr">
+          <thead><tr><th style={{width:"4%"}}>No</th><th style={{width:"31%"}}>検査項目</th><th style={{width:"8%"}}>判定</th><th style={{width:"5%"}}>写真</th><th>指摘内容・コメント</th><th style={{width:"8%"}}>是正</th><th style={{width:"11%"}}>期限</th></tr></thead>
           <tbody>{cats.map((cat,ci)=>[
-            <tr key={"c"+ci} className="pr-cat"><td>—</td><td colSpan={5}>{cat.name}</td></tr>,
+            <tr key={"c"+ci} className="pr-cat"><td>—</td><td colSpan={6}>{cat.name}</td></tr>,
             ...cat.items.map((r,ii)=><tr key={r.id}>
-              <td className="mono">{ii+1}</td><td>{r.label}</td><td className="pr-j">{JLABEL[r.judge]}</td>
-              <td>{r.issue||""}</td><td className="pr-j">{r.judge==="ng"?(r.fixed?"是正済":"未"):""}</td><td>{r.due?fmtDate(r.due):""}</td>
+              <td className="mono">{ii+1}</td><td>{r.label}</td><td className="pr-j">{JLABEL[r.judge]}</td><td className="pr-j">{r.photo?"✓":""}</td>
+              <td>{r.issue||""}{r.note?<div style={{color:"#555"}}>※{r.note}</div>:null}</td><td className="pr-j">{r.judge==="ng"?(r.fixed?"是正済":"未"):""}</td><td>{r.due?fmtDate(r.due):""}</td>
             </tr>)
           ])}</tbody>
-        </table>
+        </table>}
+        {insp.remarks?<div className="pr-remarks"><b>備考：</b>{insp.remarks}</div>:null}
         <div className="pr-foot"><div>検査者署名：＿＿＿＿＿＿＿＿</div><div>立会署名：＿＿＿＿＿＿＿＿</div></div>
       </div>;
     })}
@@ -1132,14 +1233,16 @@ function inspAOA(prop,insp){
   const rows=[
     [TYPES[insp.type].name+"　検査表"],
     ["物件名",prop.name,"","検査日",fmtDate(insp.date)],
-    ["顧客",prop.client,"","検査者",insp.inspector],
+    ["顧客",prop.client,"",insp.type==="shunko"?"PL検査者":"検査者",insp.inspector],
+    ...(insp.type==="shunko"?[["","","","お客様検査者",insp.custInspector||""]]:[]),
     ["住所",prop.address,"","集計","指摘 "+m.ng+" / 是正残 "+m.zan+" / 検査済 "+m.checked+"/"+m.total],
     [],
-    ["カテゴリ","No","検査項目","判定","指摘内容","是正状況","是正期限"],
+    ["カテゴリ","No","検査項目","判定","写真","コメント","指摘内容","是正状況","是正期限"],
   ];
   const cats=[]; insp.results.forEach(r=>{let c=cats.find(x=>x.name===r.category); if(!c){c={name:r.category,items:[]};cats.push(c);} c.items.push(r);});
-  cats.forEach(cat=>cat.items.forEach((r,ii)=>rows.push([cat.name,ii+1,r.label,JLABEL[r.judge],r.issue||"",
+  cats.forEach(cat=>cat.items.forEach((r,ii)=>rows.push([cat.name,ii+1,r.label,JLABEL[r.judge],r.photo?"○":"",r.note||"",r.issue||"",
     r.judge==="ng"?(r.fixed?"是正済":"未是正"):"", r.due?fmtDate(r.due):""])));
+  if(insp.remarks){ rows.push([]); rows.push(["備考",insp.remarks]); }
   return rows;
 }
 const setCols=(ws,w)=>{ws["!cols"]=w.map(x=>({wch:x})); return ws;};
@@ -1147,7 +1250,7 @@ const setCols=(ws,w)=>{ws["!cols"]=w.map(x=>({wch:x})); return ws;};
 function exportInspectionExcel(prop,insp){
   const wb=XLSX.utils.book_new();
   const ws=XLSX.utils.aoa_to_sheet(inspAOA(prop,insp));
-  ws["!merges"]=[{s:{r:0,c:0},e:{r:0,c:6}}]; setCols(ws,[14,4,30,8,34,10,12]);
+  ws["!merges"]=[{s:{r:0,c:0},e:{r:0,c:8}}]; setCols(ws,[14,4,30,8,6,20,30,10,12]);
   XLSX.utils.book_append_sheet(wb,ws,"検査表");
   XLSX.writeFile(wb,`検査表_${prop.name}_${TYPES[insp.type].short}_${insp.date}.xlsx`);
 }
@@ -1161,7 +1264,7 @@ function exportPropertyExcel(prop){
   const irows=[["検査種別","カテゴリ","検査項目","指摘内容","是正状況","是正期限"]];
   prop.inspections.forEach(i=>i.results.filter(r=>r.judge==="ng").forEach(r=>irows.push([TYPES[i.type].name,r.category,r.label,r.issue||"",r.fixed?"是正済":"未是正",r.due?fmtDate(r.due):""])));
   const iss=XLSX.utils.aoa_to_sheet(irows); setCols(iss,[14,14,28,34,10,12]); XLSX.utils.book_append_sheet(wb,iss,"指摘一覧");
-  prop.inspections.forEach(i=>{ const ws=XLSX.utils.aoa_to_sheet(inspAOA(prop,i)); ws["!merges"]=[{s:{r:0,c:0},e:{r:0,c:6}}]; setCols(ws,[14,4,30,8,34,10,12]);
+  prop.inspections.forEach(i=>{ const ws=XLSX.utils.aoa_to_sheet(inspAOA(prop,i)); ws["!merges"]=[{s:{r:0,c:0},e:{r:0,c:8}}]; setCols(ws,[14,4,30,8,6,20,30,10,12]);
     XLSX.utils.book_append_sheet(wb,ws,`${TYPES[i.type].short}_${i.date}`.slice(0,31)); });
   XLSX.writeFile(wb,`物件_${prop.name}_${todayISO()}.xlsx`);
 }
@@ -1336,7 +1439,8 @@ function PrintDrawing({prop,insp,drawing,imgUrl}){
     <div className="pr-h"><div className="t">{drawing.name}　是正マップ</div><div style={{textAlign:"right",fontSize:12}}>リノベーション検査シート</div></div>
     <div className="pr-meta">
       <div><b>物件名</b>{prop.name}</div><div><b>顧客</b>{prop.client||"—"}</div>
-      <div><b>検査</b>{insp?`${TYPES[insp.type].name}（${fmtDate(insp.date)}）`:"—"}</div><div><b>検査者</b>{insp&&insp.inspector?insp.inspector:"—"}</div>
+      <div><b>検査</b>{insp?`${TYPES[insp.type].name}（${fmtDate(insp.date)}）`:"—"}</div><div><b>{insp&&insp.type==="shunko"?"PL検査者":"検査者"}</b>{insp&&insp.inspector?insp.inspector:"—"}</div>
+      {insp&&insp.type==="shunko"&&<><div><b>お客様検査者</b>{insp.custInspector||"—"}</div><div></div></>}
       <div><b>是正件数</b>{pins.length}（残 {pins.filter(p=>!p.done).length}）</div><div><b>図面名</b>{drawing.name}</div>
     </div>
     <div className="pd-wrap">
@@ -1361,15 +1465,15 @@ function exportShareExcel(properties){
   const prow=[["物件名","顧客","住所"]];
   properties.forEach(p=>prow.push([p.name,p.client,p.address]));
   const ps=XLSX.utils.aoa_to_sheet(prow); setCols(ps,[26,16,24]); XLSX.utils.book_append_sheet(wb,ps,"物件");
-  const rows=[["物件名","顧客","住所","検査種別","検査日","検査者","カテゴリ","No","検査項目","判定","指摘内容","是正状況","是正期限"]];
+  const rows=[["物件名","顧客","住所","検査種別","検査日","検査者","カテゴリ","No","検査項目","判定","指摘内容","是正状況","是正期限","写真","コメント"]];
   properties.forEach(p=>{
     if(!p.inspections.length){ rows.push([p.name,p.client,p.address,"","","","","","","","","",""]); return; }
     p.inspections.forEach(i=>{ const order=[]; i.results.forEach(r=>{ if(!order.includes(r.category)) order.push(r.category); });
       order.forEach(cn=>{ let n=0; i.results.filter(r=>r.category===cn).forEach(r=>{ n++;
-        rows.push([p.name,p.client,p.address,TYPES[i.type].name,i.date,i.inspector,cn,n,r.label,JLABEL[r.judge],r.issue||"",r.judge==="ng"?(r.fixed?"是正済":"未是正"):"",r.due||""]); }); });
+        rows.push([p.name,p.client,p.address,TYPES[i.type].name,i.date,i.inspector,cn,n,r.label,JLABEL[r.judge],r.issue||"",r.judge==="ng"?(r.fixed?"是正済":"未是正"):"",r.due||"",r.photo?"○":"",r.note||""]); }); });
     });
   });
-  const ds=XLSX.utils.aoa_to_sheet(rows); setCols(ds,[22,12,18,14,12,10,14,4,28,8,30,10,12]); XLSX.utils.book_append_sheet(wb,ds,"検査データ");
+  const ds=XLSX.utils.aoa_to_sheet(rows); setCols(ds,[22,12,18,14,12,10,14,4,28,8,30,10,12,6,20]); XLSX.utils.book_append_sheet(wb,ds,"検査データ");
   XLSX.writeFile(wb,`共有_検査データ_${todayISO()}.xlsx`);
 }
 
@@ -1386,7 +1490,7 @@ function parseWorkbook(wb){
     const rows=XLSX.utils.sheet_to_json(dSheet,{header:1});
     let hi=rows.findIndex(r=>r&&r.indexOf&&r.indexOf("検査項目")>=0); if(hi<0) hi=0;
     const H=(rows[hi]||[]).map(x=>String(x||"").trim()); const col=n=>H.indexOf(n);
-    const c={prop:col("物件名"),client:col("顧客"),addr:col("住所"),type:col("検査種別"),date:col("検査日"),inspector:col("検査者"),cat:col("カテゴリ"),item:col("検査項目"),judge:col("判定"),issue:col("指摘内容"),fix:col("是正状況"),due:col("是正期限")};
+    const c={prop:col("物件名"),client:col("顧客"),addr:col("住所"),type:col("検査種別"),date:col("検査日"),inspector:col("検査者"),cat:col("カテゴリ"),item:col("検査項目"),judge:col("判定"),issue:col("指摘内容"),fix:col("是正状況"),due:col("是正期限"),photo:col("写真"),note:col("コメント")};
     const g=(r,i)=>i>=0?r[i]:undefined;
     rows.slice(hi+1).forEach(r=>{
       if(!r||!r.length) return;
@@ -1399,7 +1503,9 @@ function parseWorkbook(wb){
       if(!P._insp[k]){ P._insp[k]={id:uid(),type:tkey,date,inspector,results:[],created:Date.now()}; P.inspections.push(P._insp[k]); }
       P._insp[k].results.push({id:uid(),category:c.cat>=0?String(g(r,c.cat)||"").trim():"",label:itemLabel,
         judge:judgeFromLabel(g(r,c.judge)),issue:c.issue>=0?String(g(r,c.issue)||"").trim():"",
-        fixed:String(g(r,c.fix)||"").trim()==="是正済",due:parseDateCell(g(r,c.due))});
+        fixed:String(g(r,c.fix)||"").trim()==="是正済",due:parseDateCell(g(r,c.due)),
+        photo:["○","◯","✓","有","済","TRUE","true","1"].indexOf(String(g(r,c.photo)||"").trim())>=0,
+        note:c.note>=0?String(g(r,c.note)||"").trim():""});
     });
   }
   return order.map(n=>{ const p=props[n]; delete p._insp; return p; });
@@ -1428,15 +1534,19 @@ function TaskList({tasks,openTask}){
         <div className="hd">
           {t.kind==="pin"
             ? <span className="pinno-s">{t.no}</span>
-            : <span className={"badge "+TYPES[t.type].badge}>{TYPES[t.type].short}</span>}
+            : t.kind==="extra"
+              ? <span className="badge b-extra">追加工事</span>
+              : <span className={"badge "+TYPES[t.type].badge}>{TYPES[t.type].short}</span>}
           <span className="site">{t.propName}</span>
           <span className={"due mono "+f}>{t.due?fmtDate(t.due):"期限なし"}{f==="over"?" 超過":""}</span>
         </div>
-        <div className="body">{t.kind==="pin"?(t.issue||t.room||`是正番号 ${t.no}`):t.label}</div>
+        <div className="body">{t.kind==="pin"?(t.issue||t.room||`是正番号 ${t.no}`):t.kind==="extra"?(t.text||"追加工事"):t.label}</div>
         <div className="meta">
           {t.kind==="pin"
             ? <><span>図面：{t.drawingName}{t.type?`（${TYPES[t.type].short}）`:""}</span>{t.room&&<span>部屋：{t.room}</span>}{t.assignee&&<span>担当：{t.assignee}</span>}</>
-            : <><span>{t.category}</span>{t.issue&&<span style={{color:"var(--ng)"}}>{t.issue}</span>}</>}
+            : t.kind==="extra"
+              ? <span>追加工事（{TYPES[t.type].name}）</span>
+              : <><span>{t.category}</span>{t.issue&&<span style={{color:"var(--ng)"}}>{t.issue}</span>}</>}
         </div>
       </div>;})}
   </div>;
@@ -1569,6 +1679,44 @@ function Manuals(){
     </div>
     <input ref={fileRef} type="file" accept="application/pdf,.pdf" style={{display:"none"}} onChange={onFile}/>
   </>;
+}
+
+/* ================= 共有（JSON：図面込み・マージ取込） ================= */
+async function exportShareJSON(properties){
+  const images={}; const keys=[];
+  properties.forEach(p=>{
+    (p.drawings||[]).forEach(d=>{ if(d.imgKey) keys.push(d.imgKey); });
+    p.inspections.forEach(i=>(i.drawings||[]).forEach(d=>{ if(d.imgKey) keys.push(d.imgKey); }));
+  });
+  for(const k of keys){ const v=await idbGet(k); if(v) images[k]=v; }
+  const data={app:"reno-inspect",version:2,share:true,exported:new Date().toISOString(),properties,images};
+  const blob=new Blob([JSON.stringify(data)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=`共有_検査データ_${todayISO()}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+}
+/* 物件名でマッチしてマージ。検査は id → 種別+日付+検査者 の順で同一判定し、取込側で更新 */
+function mergeShared(cur,imported){
+  const list=cur.map(p=>({...p}));
+  imported.forEach(np=>{
+    const ex=list.find(p=>p.name===np.name);
+    if(!ex){ list.unshift(np); return; }
+    if(np.client&&!ex.client) ex.client=np.client;
+    if(np.address&&!ex.address) ex.address=np.address;
+    ex.inspections=[...ex.inspections];
+    (np.inspections||[]).forEach(ni=>{
+      let idx=ex.inspections.findIndex(i=>i.id===ni.id);
+      if(idx<0) idx=ex.inspections.findIndex(i=>i.type===ni.type&&i.date===ni.date&&(i.inspector||"")===(ni.inspector||""));
+      if(idx<0) ex.inspections.unshift(ni);
+      else ex.inspections[idx]=ni;
+    });
+    const exD=[...(ex.drawings||[])];
+    (np.drawings||[]).forEach(nd=>{ const i2=exD.findIndex(d=>d.id===nd.id); if(i2<0) exD.push(nd); else exD[i2]=nd; });
+    ex.drawings=exD;
+  });
+  return migrateProps(list);
 }
 
 /* ================= バックアップ（JSON：図面画像込み） ================= */
