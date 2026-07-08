@@ -141,6 +141,7 @@
   .jbtn.ok.on{background:var(--pass); color:#fff;}
   .jbtn.ng.on{background:var(--ng); color:#fff;}
   .jbtn.na.on{background:var(--na); color:#fff;}
+  .jbtn.ny.on{background:var(--warn); color:#fff;}
 
   .ng-panel{margin-top:10px; background:var(--ng-bg); border:1px solid #E8C3C9; padding:10px;}
   .ng-panel textarea{width:100%; border:1px solid #DCAEB5; border-radius:2px; padding:8px 9px; resize:vertical; min-height:52px; background:#fff;}
@@ -530,8 +531,9 @@ function metrics(insp){
   const all=insp.results, total=all.length;
   const checked=all.filter(r=>r.judge!=="none").length;
   const ng=all.filter(r=>r.judge==="ng").length;
+  const ny=all.filter(r=>r.judge==="ny").length;
   const fixed=all.filter(r=>r.judge==="ng"&&r.fixed).length;
-  return {total,checked,ng,fixed,zan:ng-fixed,prog:total?Math.round(checked/total*100):0};
+  return {total,checked,ng,ny,fixed,zan:ng-fixed,prog:total?Math.round(checked/total*100):0};
 }
 function propMetrics(prop){
   let total=0,checked=0,ng=0,fixed=0;
@@ -553,12 +555,12 @@ function propPinStats(prop){ let pins=0,done=0;
 function typeStatus(prop,t){
   const list=prop.inspections.filter(i=>i.type===t);
   if(!list.length) return "none";
-  let zan=0,total=0,checked=0,pins=0,pinZan=0;
-  list.forEach(i=>{const m=metrics(i); zan+=m.zan; total+=m.total; checked+=m.checked;
+  let zan=0,total=0,checked=0,ny=0,pins=0,pinZan=0;
+  list.forEach(i=>{const m=metrics(i); zan+=m.zan; total+=m.total; checked+=m.checked; ny+=(m.ny||0);
     (i.drawings||[]).forEach(d=>(d.pins||[]).forEach(p=>{pins++; if(!p.done)pinZan++;}));
     (i.extras||[]).forEach(x=>{pins++; if(!x.done)pinZan++;});});
   if(zan>0||pinZan>0) return "ng";
-  if(total>0) return checked===total?"ok":"prog";
+  if(total>0) return (checked===total&&ny===0)?"ok":"prog";
   return pins>0?"ok":"prog"; }
 function collectTasks(properties){
   const out=[];
@@ -1120,6 +1122,7 @@ function ItemRow({r,no,setRes,editItem,delItem}){
       <button className={"jbtn ok"+(r.judge==="ok"?" on":"")} onClick={()=>setRes(r.id,{judge:r.judge==="ok"?"none":"ok"})}>適合</button>
       <button className={"jbtn ng"+(r.judge==="ng"?" on":"")} onClick={()=>setRes(r.id,{judge:r.judge==="ng"?"none":"ng"})}>指摘</button>
       <button className={"jbtn na"+(r.judge==="na"?" on":"")} onClick={()=>setRes(r.id,{judge:r.judge==="na"?"none":"na"})}>対象外</button>
+      <button className={"jbtn ny"+(r.judge==="ny"?" on":"")} onClick={()=>setRes(r.id,{judge:r.judge==="ny"?"none":"ny"})}>未施工</button>
     </div>
     <div className="subrow">
       <button className={"ptog"+(r.photo?" on":"")} onClick={()=>setRes(r.id,{photo:!r.photo})}>{r.photo?"☑":"☐"} 写真</button>
@@ -1185,7 +1188,7 @@ function Templates({templates,setTemplates}){
 }
 
 /* ================= 印刷（PDF） ================= */
-const JLABEL={none:"—",ok:"適合",ng:"指摘",na:"対象外"};
+const JLABEL={none:"—",ok:"適合",ng:"指摘",na:"対象外",ny:"未施工"};
 function PrintReport({prop,insps}){
   return <div className="print-area">
     {insps.map((insp,si)=>{
@@ -1306,6 +1309,21 @@ function ImportDrawing({onClose,onCreate}){
     catch(err){ await dlg.alert({title:"エラー",message:"PDFの読み込みに失敗しました。"}); }
     setBusy(false);
   };
+  const [preview,setPreview]=useState(null);
+  useEffect(()=>{ let on=true;
+    if(!doc){ setPreview(null); return; }
+    (async()=>{
+      try{
+        const pg=await doc.getPage(page);
+        const base=pg.getViewport({scale:1});
+        const vp=pg.getViewport({scale:Math.min(700/base.width,1.5)});
+        const cv=document.createElement("canvas"); cv.width=Math.round(vp.width); cv.height=Math.round(vp.height);
+        await pg.render({canvasContext:cv.getContext("2d"),viewport:vp}).promise;
+        if(on) setPreview(cv.toDataURL("image/jpeg",0.6));
+      }catch(e){ if(on) setPreview(null); }
+    })();
+    return ()=>{on=false;};
+  },[doc,page]);
   const create=async()=>{
     if(!doc){ await dlg.alert({title:"PDF未選択",message:"先にPDFファイルを選択してください。"}); return; }
     setBusy(true);
@@ -1328,8 +1346,13 @@ function ImportDrawing({onClose,onCreate}){
     <div className="flabel">PDFファイル</div>
     <button className="btn btn-ghost btn-block" onClick={()=>fileRef.current&&fileRef.current.click()}>{busy&&!doc?"読み込み中…":doc?`選択済み（全${pages}ページ）`:"PDFを選択"}</button>
     <input ref={fileRef} type="file" accept="application/pdf,.pdf" style={{display:"none"}} onChange={pick}/>
-    {pages>1 && <><div className="flabel">使用するページ</div>
-      <input className="finput" type="number" min="1" max={pages} value={page} onChange={e=>setPage(Math.max(1,Math.min(pages,Number(e.target.value)||1)))}/></>}
+    {pages>1 && <><div className="flabel">使用するページ（{page} / {pages}ページ）</div>
+      <div className="row">
+        <button className="btn btn-ghost btn-block" onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page<=1} style={page<=1?{opacity:.4}:null}>← 前のページ</button>
+        <button className="btn btn-ghost btn-block" onClick={()=>setPage(p=>Math.min(pages,p+1))} disabled={page>=pages} style={page>=pages?{opacity:.4}:null}>次のページ →</button>
+      </div></>}
+    {preview && <><div className="flabel">プレビュー{pages>1?"（このページを取り込みます）":""}</div>
+      <img src={preview} alt="" style={{width:"100%",display:"block",border:"1px solid var(--line)",background:"#fff"}}/></>}
     <div className="sheet-actions">
       <button className="btn btn-ghost btn-block" onClick={onClose}>キャンセル</button>
       <button className="btn btn-primary btn-block" onClick={create} disabled={busy||!doc} style={(busy||!doc)?{opacity:.5}:null}>{busy&&doc?"処理中…":"取り込む"}</button>
@@ -1455,7 +1478,7 @@ function PrintDrawing({prop,insp,drawing,imgUrl}){
 }
 
 /* ================= Excel 共有出力／取込 ================= */
-function judgeFromLabel(s){ s=(s||"").toString().trim(); if(s==="適合")return"ok"; if(s==="指摘")return"ng"; if(s==="対象外")return"na"; return"none"; }
+function judgeFromLabel(s){ s=(s||"").toString().trim(); if(s==="適合")return"ok"; if(s==="指摘")return"ng"; if(s==="対象外")return"na"; if(s==="未施工")return"ny"; return"none"; }
 function typeFromName(s){ s=(s||"").toString().trim(); for(const k of TYPE_ORDER){ if(TYPES[k].name===s||TYPES[k].short===s) return k; } return null; }
 function parseDateCell(v){ if(v==null||v==="") return ""; if(typeof v==="number"&&XLSX.SSF){ const d=XLSX.SSF.parse_date_code(v); if(d) return `${d.y}-${String(d.m).padStart(2,"0")}-${String(d.d).padStart(2,"0")}`; }
   let s=String(v).trim().replace(/[./]/g,"-"); const m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); return m?`${m[1]}-${m[2].padStart(2,"0")}-${m[3].padStart(2,"0")}`:s; }
